@@ -45,5 +45,7 @@ if __name__ == "__main__":
     searchlocation("56008")
     searchlocation("BN:ME{131366445}")
     searchlocation("SM2607_S1")
+    searchlocation("DZ0395-DZ1070")
+    searchlocation("SM2607_s1")
 
     # calneidlen()
