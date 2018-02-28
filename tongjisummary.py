@@ -2,6 +2,7 @@ from filereader import FileReader
 from collections import Counter
 import time
 import re
+import json
 
 def tongjisummarydata():
     filereader = FileReader("../1022.csv")
@@ -35,32 +36,38 @@ def tongjisummarydata():
     # print valuelist
 
 def tongjifirstword():
-    filereader = FileReader("../1022.csv")
-    attridx = filereader.getattridx("SUMMARY")
     trandata = {}
-    pattern = "[\w]{6}-[\w]{6}.+[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}"
-    while True:
-        tmptran = filereader.readtransection()
-        if tmptran is None:
-            break
-        summary = tmptran[attridx]
-        searchresult = re.search(pattern,summary)
-        if searchresult:
-           continue
-        summary = summaryprocesser(summary)
-        summary = summary.strip()
-        firstspace = summary.find(" ")
-        if firstspace == -1:
-            target = summary
-        else:
-            target = summary[:firstspace]
-        if target not in trandata:
-            trandata[target] = 0
-        trandata[target] += 1
+    fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,32)]
+    for fname in fnamelist:
+        filereader = FileReader(fname)
+        attridx = filereader.getattridx("SUMMARY")
+
+        pattern = "[\w]{6}-[\w]{6}.+[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}"
+        while True:
+            tmptran = filereader.readtransection()
+            if tmptran is None:
+                filereader.close()
+                break
+            summary = tmptran[attridx]
+            searchresult = re.search(pattern,summary)
+            if searchresult:
+               continue
+            summary = summaryprocesser(summary)
+            summary = summary.strip()
+            firstspace = summary.find(" ")
+            if firstspace == -1:
+                target = summary
+            else:
+                target = summary[:firstspace]
+            if target not in trandata:
+                trandata[target] = 0
+            trandata[target] += 1
 
     import pprint
     pp = pprint.PrettyPrinter(indent=4)
     pp.pprint(trandata)
+    json.dump(trandata,open("trandata","w"))
+    return trandata
     # kvlist = trandata.items()
     # kvlist.sort(key=lambda v:v[1])
     # for k, v in kvlist:
@@ -139,21 +146,35 @@ def printtu():
 def printinfodata():
     filereader = FileReader("../1022.csv")
     attridx = filereader.getattridx("SUMMARY")
-    startwordlist = ["the","tcn-uae","tcn-rx","su1701su2618","stm","software","smkmsc","site","sets",
-                     "rx","rs","pdh","notification_id","non-work","nokia","no.","ms","mains","low",
-                     "lof","link","krzm","karshi","high","genset","ethernet","environment","ems","early",
-                     "board","bn","bhzm","au4","asso","alarmprobablecause","24-hour"]
+    locationidx = filereader.getattridx("LOCATION")
+    trandata = json.load(open("trandata"))
+    startwordlist = trandata.keys()
+    startwordlist = [v.encode("ascii") for v in startwordlist]
+    startwordlist = [v for v in startwordlist if len(v)]
+    print startwordlist
     filelist = [open(v,"w") for v in startwordlist]
-    while True:
-        tmptran = filereader.readtransection()
-        if tmptran is None:
-            break
-        summary = tmptran[attridx]
-        summary = summaryprocesser(summary)
-        summary = summary.strip()
-        for stword, ofile in zip(startwordlist,filelist):
-            if summary.startswith(stword):
-                ofile.write(tmptran[attridx]+"\n")
+    locfilelist = [open(v+"loc","w") for v in startwordlist]
+    fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,32)]
+    for fname in fnamelist:
+        print fname
+        filereader = FileReader(fname)
+        while True:
+            tmptran = filereader.readtransection()
+            if tmptran is None:
+                filereader.close()
+                break
+            summary = tmptran[attridx]
+            summary = summaryprocesser(summary)
+            summary = summary.strip()
+            for idx in xrange(len(startwordlist)):
+                stword = startwordlist[idx]
+                ofile = filelist[idx]
+                locofile = locfilelist[idx]
+            # for stword, ofile in zip(startwordlist,filelist):
+                if summary.startswith(stword):
+                    ofile.write(tmptran[attridx]+"\n")
+                    locofile.write(tmptran[locationidx]+"\n")
+                    break
     for v in filelist:
         v.close()
 
@@ -201,8 +222,6 @@ def test():
         print searchresult.group(0)
     else:
         raise
-
-
 
 if __name__ == "__main__":
     # retrivetempleteinput()
