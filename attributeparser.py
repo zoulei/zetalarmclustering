@@ -252,6 +252,7 @@ class TestWarning:
             filereader = FileReader(fname)
             attridx = filereader.getattridx("SUMMARY")
             locidx= filereader.getattridx("LOCATION")
+            timeidx = filereader.getattridx("ALARMHAPPENTIME")
             while True:
                 tmptran = filereader.readtransection()
                 if tmptran is None:
@@ -263,18 +264,17 @@ class TestWarning:
                 ftword = warn.getfirstword()
                 if ftword not in wholeresult:
                     wholeresult[ftword] = {"cnt":0,"good":0}
-
+                wholeresult[ftword]["cnt"] += 1
                 content = warn.fetchsummarycontent()
                 if content is None:
                     continue
-                wholeresult[ftword]["cnt"] += 1
                 cnt += 1
                 loc = warn.fetchloc(self.m_topo)
                 if loc is None:
                     continue
                 wholeresult[ftword]["good"] += 1
                 found += 1
-                writefile.write(content+"\t"+str(loc)+"\n")
+                writefile.write(content+"\t"+str(loc)+"\t"+tmptran[timeidx]+"\n")
         writefile.close()
 
         print "result:"
@@ -282,6 +282,12 @@ class TestWarning:
         print "found:",found
         print "pcg:",found * 1.0 / cnt
 
+        for v in wholeresult.keys():
+            wholeresult[v]["pcg"] = wholeresult[v]["good"] * 1.0 / wholeresult[v]["cnt"]
+        import pprint
+        pprint.pprint(wholeresult)
+        json.dump(wholeresult,open("tmpwholeresult","w"))
+
 if __name__ == "__main__":
-    # TestWarning().testfound()
-    testnenamereplicate()
+    TestWarning().testfound()
+    # testnenamereplicate()
