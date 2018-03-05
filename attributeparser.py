@@ -209,14 +209,14 @@ class Warning:
             locno = location[left+1:right]
         elif self.m_type == TP8:
             pass
-        elif self.m_type == TP9:
-            pass
         elif self.m_type == TP11:
             pass
-        elif self.m_type == NOTP5:
-            idx = location.find("Site Name:")
+        elif self.m_type == NOTP4:
+            pass
+        elif self.m_type in [TP9, NOTP5]:
+            idx = location.find("Site ID:")
             dotidx = location.find(",",idx)
-            locname = location[idx+len("Site Name:"):dotidx]
+            locname = location[idx+len("Site ID:"):dotidx]
         else:
             idx = location.find(",")
             if idx != -1:
@@ -250,6 +250,7 @@ class TestWarning:
         writefile = open("../cleandata","w")
         for fname in fnamelist:
             filereader = FileReader(fname)
+            alarmcode = filereader.getattridx("ALARMCODE")
             attridx = filereader.getattridx("SUMMARY")
             locidx= filereader.getattridx("LOCATION")
             timeidx = filereader.getattridx("ALARMHAPPENTIME")
@@ -265,16 +266,16 @@ class TestWarning:
                 if ftword not in wholeresult:
                     wholeresult[ftword] = {"cnt":0,"good":0}
                 wholeresult[ftword]["cnt"] += 1
-                content = warn.fetchsummarycontent()
-                if content is None:
-                    continue
+                # content = warn.fetchsummarycontent()
+                # if content is None:
+                #     continue
                 cnt += 1
                 loc = warn.fetchloc(self.m_topo)
                 if loc is None:
                     continue
                 wholeresult[ftword]["good"] += 1
                 found += 1
-                writefile.write(content+"\t"+str(loc)+"\t"+tmptran[timeidx]+"\n")
+                writefile.write(alarmcode+"\t"+str(loc)+"\t"+tmptran[timeidx]+"\n")
         writefile.close()
 
         print "result:"

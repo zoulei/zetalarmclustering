@@ -9,11 +9,12 @@ def searchlocation(locstr):
             break
         # for idx,v in enumerate(tmptran):
         #     if locstr in v:
+        # tmptran = [v.lower() for v in tmptran]
         if locstr in tmptran:
             print "found",filereader.getattr( tmptran.index(locstr))
             print locstr
             # label = False
-            break
+            # break
     print "over"
 
 def calneidlen():
@@ -63,14 +64,14 @@ if __name__ == "__main__":
     # searchlocation("EMS")
     # searchlocation("BH0435-G_VIP_S0")
     # searchlocation("BH0435")
-    # searchlocation("435")
+    searchlocation("435")
     # searchlocation("GBTSPANEL")
     # searchlocation("KS2603-K5775")
     # searchlocation("SM0233-SM1132")
     # searchlocation("SM0233_SM1132(LOW)")
     # searchlocation("Sm114-Sm2004")
     # searchlocation("SM0453-SM0220")
-    # searchlocation("SM2403")
+    searchlocation("sm2403")
     # searchlocation("1939581319462")
     # searchlocation("ZXMW PR10")
     # searchlocation("ZXMW")
@@ -91,5 +92,6 @@ if __name__ == "__main__":
     # searchlocation("NV1023-G_HUB(10)_S0")
     # searchlocation("92")
     # searchlocation("1023")
-    searchlocation("BH0435-G_VIP_S0")
+    # searchlocation("BH0435-G_VIP_S0")
+    searchlocation("ZXMW_NR8120_899")
     # calneidlen()

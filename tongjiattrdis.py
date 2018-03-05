@@ -32,12 +32,14 @@ def tongjidistype(fname,attrname):
     #     raw_input()
 
     # print valuelist
-    raw_input()
+    # raw_input()
+    print "========================================================"
     import pprint
     pp = pprint.PrettyPrinter(indent=4)
     pp.pprint(trandata)
+    print "length:",len(trandata)
 
 if __name__ == "__main__":
-    tongjidistype("../1022.csv","LOCATION")
+    tongjidistype("../1022.csv","ALARMCODE")
 
 
