@@ -200,9 +200,9 @@ class Warning:
         location = self.m_location
         locname = None
         locno = None
-        if self.m_type == TPERROR:
-            pass
-        elif self.m_type == TP4:
+        # if self.m_type == TPERROR:
+        #     pass
+        if self.m_type == TP4:
             idx = location.find("NodeMe=")
             dotidx = location.find(",",idx)
             locno = location[idx+len("NodeMe="):dotidx]
@@ -256,6 +256,8 @@ class TestWarning:
         found = 0
         wholeresult = {}
         writefile = open("../cleandata","w")
+
+        missloc = {}
         for fname in fnamelist:
             filereader = FileReader(fname)
             alarmcode = filereader.getattridx("ALARMCODE")
@@ -280,10 +282,13 @@ class TestWarning:
                 cnt += 1
                 loc = warn.fetchloc(self.m_topo)
                 if loc is None:
+                    if loc not in missloc:
+                        missloc[loc] = 0
+                    missloc[loc] += 1
                     continue
                 wholeresult[ftword]["good"] += 1
                 found += 1
-                writefile.write(alarmcode+"\t"+str(loc)+"\t"+tmptran[timeidx]+"\n")
+                writefile.write(str(alarmcode)+"\t"+str(loc)+"\t"+tmptran[timeidx]+"\n")
         writefile.close()
 
         print "result:"
@@ -295,7 +300,11 @@ class TestWarning:
             wholeresult[v]["pcg"] = wholeresult[v]["good"] * 1.0 / wholeresult[v]["cnt"]
         import pprint
         pprint.pprint(wholeresult)
+        print "-----------------------"
+        pprint.pprint(missloc)
+        print "missloclen:",len(missloc)
         json.dump(wholeresult,open("tmpwholeresult","w"))
+        json.dump(missloc,open("missloc","w"))
 
 if __name__ == "__main__":
     TestWarning().testfound()
