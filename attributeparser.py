@@ -19,6 +19,11 @@ class NE:
     def __str__(self):
         return "|||".join([self.m_no , self.m_name , self.m_id])
 
+    def __contains__(self, item):
+        if self.m_name != item and item in self.m_name:
+            return True
+        return False
+
 def testinfunction():
     a = NE(2,2,2)
     b = NE(4,4,4)
@@ -61,6 +66,9 @@ class TopoInfo:
     def getne(self,mark):
         for v in self.m_locdata:
             if mark == v:
+                return v
+        for v in self.m_locdata:
+            if mark in v:
                 return v
         return None
 

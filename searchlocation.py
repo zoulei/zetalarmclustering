@@ -1,21 +1,15 @@
 from filereader import FileReader
+from attributeparser import TopoInfo
 
 def searchlocation(locstr):
-    filereader= FileReader("../NE_INFO.csv")
-    label = True
-    while label:
-        tmptran = filereader.readtransection()
-        if tmptran is None:
-            break
-        # for idx,v in enumerate(tmptran):
-        #     if locstr in v:
-        # tmptran = [v.lower() for v in tmptran]
-        if locstr in tmptran:
-            print "found",filereader.getattr( tmptran.index(locstr))
-            print locstr
-            # label = False
-            # break
-    print "over"
+    # filereader= FileReader("../NE_INFO.csv")
+    # label = True
+    topo = TopoInfo()
+    ne = topo.getne(locstr)
+    if ne is None:
+        print "over"
+    else:
+        print "found:",locstr
 
 def calneidlen():
     filereader= FileReader("../NE_INFO.csv")
@@ -71,7 +65,7 @@ if __name__ == "__main__":
     # searchlocation("SM0233_SM1132(LOW)")
     # searchlocation("Sm114-Sm2004")
     # searchlocation("SM0453-SM0220")
-    searchlocation("sm2403")
+    searchlocation("SM2403")
     # searchlocation("1939581319462")
     # searchlocation("ZXMW PR10")
     # searchlocation("ZXMW")
