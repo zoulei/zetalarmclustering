@@ -20,7 +20,7 @@ class NE:
         return "|||".join([self.m_no , self.m_name , self.m_id])
 
     def __contains__(self, item):
-        if self.m_name != item and item in self.m_name:
+        if item in self.m_name:
             return True
         return False
 
@@ -196,12 +196,49 @@ class Warning:
         cnt = cnt.lower()
         return cnt
 
+    def fetchlocstr(self):
+        location = self.m_location
+        locname = None
+        locno = None
+        if self.m_type == TP4:
+            idx = location.find("NodeMe=")
+            dotidx = location.find(",",idx)
+            locno = location[idx+len("NodeMe="):dotidx]
+        elif self.m_type == TP5:
+            for idx, v in enumerate(location):
+                if not v.isalnum() and v == " ":
+                    locname = location[:idx]
+                    break
+        elif self.m_type == TP7:
+            left = location.find("(")
+            right = location.find(")")
+            locno = location[left+1:right]
+        elif self.m_type == TP8:
+            pass
+        elif self.m_type == TP11:
+            pass
+        elif self.m_type == NOTP4:
+            pass
+        elif self.m_type in [TP9, NOTP5]:
+            idx = location.find("Site ID:")
+            dotidx = location.find(",",idx)
+            locname = location[idx+len("Site ID:"):dotidx]
+        else:
+            idx = location.find(",")
+            if idx != -1:
+                locname = location[:idx]
+
+        if locname is not None:
+            return locname
+        elif locno is not None:
+            return locno
+        else:
+            return None
+
     def fetchloc(self,topo):
         location = self.m_location
         locname = None
         locno = None
-        # if self.m_type == TPERROR:
-        #     pass
         if self.m_type == TP4:
             idx = location.find("NodeMe=")
             dotidx = location.find(",",idx)
@@ -251,7 +288,7 @@ class TestWarning:
         self.m_topo = TopoInfo()
 
     def testfound(self):
-        fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,32)]
+        fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,23)]
         cnt = 0
         found = 0
         wholeresult = {}
@@ -264,11 +301,15 @@ class TestWarning:
             attridx = filereader.getattridx("SUMMARY")
             locidx= filereader.getattridx("LOCATION")
             timeidx = filereader.getattridx("ALARMHAPPENTIME")
+            cntidx = 0
             while True:
                 tmptran = filereader.readtransection()
+                cntidx += 1
+                print cntidx
                 if tmptran is None:
                     filereader.close()
                     break
+
                 summary = tmptran[attridx]
                 location = tmptran[locidx]
                 warn = Warning(summary,location)
@@ -282,9 +323,10 @@ class TestWarning:
                 cnt += 1
                 loc = warn.fetchloc(self.m_topo)
                 if loc is None:
-                    if loc not in missloc:
-                        missloc[loc] = 0
-                    missloc[loc] += 1
+                    locstr = warn.fetchlocstr()
+                    if locstr not in missloc:
+                        missloc[locstr] = 0
+                    missloc[locstr] += 1
                     continue
                 wholeresult[ftword]["good"] += 1
                 found += 1
