@@ -4,12 +4,13 @@ from attributeparser import TopoInfo
 def searchlocation(locstr):
     # filereader= FileReader("../NE_INFO.csv")
     # label = True
-    topo = TopoInfo()
+    topo = TopoInfo(full=True)
     ne = topo.getne(locstr)
     if ne is None:
         print "over"
     else:
         print "found:",locstr
+        print "found NE:",str(ne)
 
 def calneidlen():
     filereader= FileReader("../NE_INFO.csv")
@@ -34,6 +35,10 @@ def calneidlen():
     pp.pprint(lendict)
 
 if __name__ == "__main__":
+    searchlocation("SU6095-SU2551")
+    searchlocation("SU6095")
+    searchlocation("LHDZ02_8G")
+    searchlocation("LHDZ02")
     # searchlocation("DZ1067-LHDZ02_8G")
     # searchlocation("DZ1062-DZ2406")
     # searchlocation("SU6029-SU6037")
@@ -58,14 +63,14 @@ if __name__ == "__main__":
     # searchlocation("EMS")
     # searchlocation("BH0435-G_VIP_S0")
     # searchlocation("BH0435")
-    searchlocation("435")
+    # searchlocation("435")
     # searchlocation("GBTSPANEL")
     # searchlocation("KS2603-K5775")
     # searchlocation("SM0233-SM1132")
     # searchlocation("SM0233_SM1132(LOW)")
     # searchlocation("Sm114-Sm2004")
     # searchlocation("SM0453-SM0220")
-    searchlocation("SM2403")
+    # searchlocation("SM2403")
     # searchlocation("1939581319462")
     # searchlocation("ZXMW PR10")
     # searchlocation("ZXMW")
@@ -87,5 +92,16 @@ if __name__ == "__main__":
     # searchlocation("92")
     # searchlocation("1023")
     # searchlocation("BH0435-G_VIP_S0")
-    searchlocation("ZXMW_NR8120_899")
+    # searchlocation("ZXMW_NR8120_899")
+    # searchlocation("DZ1059-DZ1067")
+    # searchlocation("DZ1059")
+    # searchlocation("DZ1067")
+    # searchlocation("BN:ME{131366167}")
+    # searchlocation("SU2508")
+    # searchlocation("SU1701")
+    # searchlocation("SU2618")
+    # searchlocation("SU6028")
+    # searchlocation("SU2554")
+    # searchlocation("SU6095")
+    # searchlocation("SU2551")
     # calneidlen()

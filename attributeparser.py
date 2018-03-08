@@ -5,13 +5,17 @@ from filereader import FileReader
 import json
 
 class NE:
-    def __init__(self,ne_no,ne_name,ne_id):
+    def __init__(self,ne_no,ne_name,ne_alias):
         self.m_no = ne_no
         self.m_name = ne_name
-        self.m_id = ne_id
+        # self.m_id = ne_id
+        self.m_id = ne_alias
 
     def __eq__(self,other):
-        return other in [self.m_no,self.m_name,self.m_id]
+        if isinstance(other,str):
+            return other in [self.m_no,self.m_name,self.m_id]
+        elif isinstance(other, NE):
+            return self.m_no == other.m_no and self.m_name == other.m_name and self.m_id == other.m_id
 
     def __hash__(self):
         return "|||".join([self.m_no , self.m_name , self.m_id])
@@ -25,22 +29,15 @@ class NE:
         return False
 
 def testinfunction():
-    a = NE(2,2,2)
-    b = NE(4,4,4)
-    print 2 in [a,b]
-    print "-----------"
-    print a in [a,b]
-    print "-----------"
-    print NE(2,2,2) in [a,b]
-    print "=================="
-    print 2 == a
-    print "=================="
-    print NE(2,2,2) == a
+    a = NE("1","2345","32")
+    print "23" in a
 
 class TopoInfo:
-    def __init__(self):
-        # self.loadloc()
-        self.loaddistinctloc()
+    def __init__(self,full = True):
+        if full:
+            self.loadloc()
+        else:
+            self.loaddistinctloc()
 
     def loaddistinctloc(self):
         self.m_locdata = [NE(*v.split("|||")) for v in json.load(open("../distinctnedata"))]
@@ -49,7 +46,7 @@ class TopoInfo:
         filereader= FileReader("../NE_INFO.csv")
         noidx = filereader.getattridx("NE_NO")
         nameidx = filereader.getattridx("NE_NAME")
-        ididx = filereader.getattridx("NE_ID")
+        ididx = filereader.getattridx("ALIAS")
         self.m_locdata = []
         while True:
             tmptran = filereader.readtransection()
@@ -67,13 +64,19 @@ class TopoInfo:
         for v in self.m_locdata:
             if mark == v:
                 return v
+        return None
+
+    def getnebyname(self,name):
+        targetne = self.getne(name)
+        if targetne:
+            return targetne
         for v in self.m_locdata:
-            if mark in v:
+            if name in v:
                 return v
         return None
 
 def testnenamereplicate():
-    topo = TopoInfo()
+    topo = TopoInfo(full=True)
     cnt = 0
     reduplicateidx = []
     for idx in xrange(len(topo.m_locdata)):
@@ -82,7 +85,8 @@ def testnenamereplicate():
             netwo = topo.m_locdata[j]
             if neone == netwo:
                 print idx,j,len(topo.m_locdata)
-                print "error:",str(neone),str(netwo)
+                print "ne one:",str(neone)
+                print "ne two:",str(netwo)
                 cnt += 1
                 reduplicateidx.append(idx)
                 break
@@ -91,23 +95,27 @@ def testnenamereplicate():
         del topo.m_locdata[idx]
 
     json.dump([str(v) for v in topo.m_locdata],open("../distinctnedata","w"))
-    # for idx in xrange(len(topo.m_locdata)):
-    #     for j in xrange(idx + 1,len(topo.m_locdata)):
-    #         neone = topo.m_locdata[idx]
-    #         netwo = topo.m_locdata[j]
-    #         # if neone == netwo:
-    #         #     print idx,j,len(topo.m_locdata)
-    #         #     print "error:",str(neone),str(netwo)
-    #         #     cnt += 1
-    #         #     reduplicateidx.append(idx)
-    #         #     raise
-    #         if neone.m_no == netwo:
-    #             print "no",str(neone),str(netwo)
-    #         elif neone.m_name == netwo:
-    #             print "name",str(neone),str(netwo)
-    #         elif neone.m_id == netwo:
-    #             print "id",str(neone),str(netwo)
-
+    for idx in xrange(len(topo.m_locdata)):
+        for j in xrange(idx + 1,len(topo.m_locdata)):
+            neone = topo.m_locdata[idx]
+            netwo = topo.m_locdata[j]
+            # if neone == netwo:
+            #     print idx,j,len(topo.m_locdata)
+            #     print "error:",str(neone),str(netwo)
+            #     cnt += 1
+            #     reduplicateidx.append(idx)
+            #     raise
+            if neone.m_no == netwo:
+                print idx,j,"------------"
+                print "no",str(neone)
+                print "no",str(netwo)
+            # elif neone.m_name == netwo:
+            #     print "name",str(neone),str(netwo)
+            if neone.m_id == netwo:
+                print idx,j,"------------"
+                print "id",str(neone)
+                print "id",str(netwo)
+                raise
     print "cnt:",cnt
 
 class Warning:
@@ -137,11 +145,11 @@ class Warning:
         elif "COMM:EMS" in summary:
             return TP11
         elif re.search("TIME.*vas_anyserv_module",summary):
-            if pcdsummary.startswith("Link"):
+            if pcdsummary.startswith("link"):
                 return NOTP3
             else:
                 return TP6
-        elif pcdsummary.startswith("Site"):
+        elif pcdsummary.startswith("site"):
             return NOTP5
         elif pcdsummary.startswith("notification_id"):
             return NOTP4
@@ -200,19 +208,28 @@ class Warning:
         location = self.m_location
         locname = None
         locno = None
-        if self.m_type == TP4:
+        if self.m_type == TP3:
+            idx = location.find("BN:ME{")
+            endidx = location.find("}",idx)
+            locno = location[idx :endidx+1]
+        elif self.m_type == TP4:
             idx = location.find("NodeMe=")
             dotidx = location.find(",",idx)
             locno = location[idx+len("NodeMe="):dotidx]
         elif self.m_type == TP5:
             for idx, v in enumerate(location):
-                if not v.isalnum() and v == " ":
+                if not v.isalnum() and v != " ":
                     locname = location[:idx]
                     break
         elif self.m_type == TP7:
             left = location.find("(")
             right = location.find(")")
-            locno = location[left+1:right]
+            locname = location[left+1:right]
+            if len(locname) == 0:
+                result = re.search("IpAddress=[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}",location)
+                if result:
+                    locno = result.group(0)
+                    locname = None
         elif self.m_type == TP8:
             pass
         elif self.m_type == TP11:
@@ -222,7 +239,7 @@ class Warning:
         elif self.m_type in [TP9, NOTP5]:
             idx = location.find("Site ID:")
             dotidx = location.find(",",idx)
-            locname = location[idx+len("Site ID:"):dotidx]
+            locno = location[idx+len("Site ID:"):dotidx]
         else:
             idx = location.find(",")
             if idx != -1:
@@ -239,19 +256,31 @@ class Warning:
         location = self.m_location
         locname = None
         locno = None
-        if self.m_type == TP4:
+        if self.m_type == TP3:
+            idx = location.find("BN:ME{")
+            endidx = location.find("}",idx)
+            locno = location[idx :endidx+1]
+        elif self.m_type == TP4:
             idx = location.find("NodeMe=")
             dotidx = location.find(",",idx)
-            locno = location[idx+len("NodeMe="):dotidx]
+            if dotidx != -1:
+                locno = location[idx+len("NodeMe="):dotidx]
+            else:
+                locno = location[idx+len("NodeMe="):]
         elif self.m_type == TP5:
             for idx, v in enumerate(location):
-                if not v.isalnum() and v == " ":
+                if not v.isalnum() and v != " ":
                     locname = location[:idx]
                     break
         elif self.m_type == TP7:
             left = location.find("(")
             right = location.find(")")
-            locno = location[left+1:right]
+            locname = location[left+1:right]
+            if len(locname) == 0:
+                result = re.search("IpAddress=[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}\.[\d]{1,3}",location)
+                if result:
+                    locno = result.group(0)
+                    locname = None
         elif self.m_type == TP8:
             pass
         elif self.m_type == TP11:
@@ -261,14 +290,16 @@ class Warning:
         elif self.m_type in [TP9, NOTP5]:
             idx = location.find("Site ID:")
             dotidx = location.find(",",idx)
-            locname = location[idx+len("Site ID:"):dotidx]
+            locno = location[idx+len("Site ID:"):dotidx]
+            # print "locname:=================",locname,idx,dotidx
+            # print location
         else:
             idx = location.find(",")
             if idx != -1:
                 locname = location[:idx]
 
         if locname is not None:
-            return topo.getne(locname)
+            return topo.getnebyname(locname)
         elif locno is not None:
             return topo.getne(locno)
         else:
@@ -292,7 +323,7 @@ class TestWarning:
         cnt = 0
         found = 0
         wholeresult = {}
-        writefile = open("../cleandata","w")
+        # writefile = open("../cleandata","w")
 
         missloc = {}
         for fname in fnamelist:
@@ -305,7 +336,7 @@ class TestWarning:
             while True:
                 tmptran = filereader.readtransection()
                 cntidx += 1
-                print cntidx
+                # print cntidx
                 if tmptran is None:
                     filereader.close()
                     break
@@ -313,6 +344,8 @@ class TestWarning:
                 summary = tmptran[attridx]
                 location = tmptran[locidx]
                 warn = Warning(summary,location)
+                if warn.m_type == NOTP4:
+                    continue
                 ftword = warn.getfirstword()
                 if ftword not in wholeresult:
                     wholeresult[ftword] = {"cnt":0,"good":0}
@@ -326,12 +359,17 @@ class TestWarning:
                     locstr = warn.fetchlocstr()
                     if locstr not in missloc:
                         missloc[locstr] = 0
+                        print "==============================================="
+                        print warn.m_summary
+                        print "----------------------------------"
+                        print warn.m_location
+                        print "locstr:",warn.m_type,locstr
                     missloc[locstr] += 1
                     continue
                 wholeresult[ftword]["good"] += 1
                 found += 1
-                writefile.write(str(alarmcode)+"\t"+str(loc)+"\t"+tmptran[timeidx]+"\n")
-        writefile.close()
+                # writefile.write(str(alarmcode)+"\t"+str(loc)+"\t"+tmptran[timeidx]+"\n")
+        # writefile.close()
 
         print "result:"
         print "cnt:",cnt
@@ -339,7 +377,10 @@ class TestWarning:
         print "pcg:",found * 1.0 / cnt
 
         for v in wholeresult.keys():
-            wholeresult[v]["pcg"] = wholeresult[v]["good"] * 1.0 / wholeresult[v]["cnt"]
+            if wholeresult[v]["good"] == wholeresult[v]["cnt"]:
+                del wholeresult[v]
+            else:
+                wholeresult[v]["pcg"] = wholeresult[v]["good"] * 1.0 / wholeresult[v]["cnt"]
         import pprint
         pprint.pprint(wholeresult)
         print "-----------------------"
@@ -351,3 +392,5 @@ class TestWarning:
 if __name__ == "__main__":
     TestWarning().testfound()
     # testnenamereplicate()
+    # testinfunction()
+    # TopoInfo().getnebyname("BH0040-BH0440  Sub S")
