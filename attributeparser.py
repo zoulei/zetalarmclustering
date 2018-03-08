@@ -5,11 +5,10 @@ from filereader import FileReader
 import json
 
 class NE:
-    def __init__(self,ne_no,ne_name,ne_alias):
+    def __init__(self,ne_no,ne_name,ne_innm):
         self.m_no = ne_no
         self.m_name = ne_name
-        # self.m_id = ne_id
-        self.m_id = ne_alias
+        self.m_id = ne_innm
 
     def __eq__(self,other):
         if isinstance(other,str):
@@ -46,13 +45,23 @@ class TopoInfo:
         filereader= FileReader("../NE_INFO.csv")
         noidx = filereader.getattridx("NE_NO")
         nameidx = filereader.getattridx("NE_NAME")
-        ididx = filereader.getattridx("ALIAS")
+        ididx = filereader.getattridx("ID_IN_NM")
         self.m_locdata = []
         while True:
             tmptran = filereader.readtransection()
             if tmptran is None:
                 break
-            self.m_locdata.append(NE(tmptran[noidx],tmptran[nameidx],tmptran[ididx]))
+            innminfo = tmptran[ididx]
+            siteididx = innminfo.find("BtsSiteMgr=BCF-")
+            if siteididx == -1:
+                siteididx = innminfo.find("BtsSiteMgr=")
+                if siteididx == -1:
+                    innm =  "-1"
+                else:
+                    innm = innminfo[siteididx+len("BtsSiteMgr="):]
+            else:
+                innm = innminfo[siteididx+len("BtsSiteMgr=BCF-"):]
+            self.m_locdata.append(NE(tmptran[noidx],tmptran[nameidx],innm))
 
     def testifylocname(self,name):
         return name in self.m_locdata
@@ -60,18 +69,24 @@ class TopoInfo:
     def testifylocno(self,no):
         return no in self.m_locdata
 
-    def getne(self,mark):
+    def getnebyno(self,no):
         for v in self.m_locdata:
-            if mark == v:
+            if no == v.m_no:
                 return v
         return None
 
     def getnebyname(self,name):
-        targetne = self.getne(name)
-        if targetne:
-            return targetne
+        for v in self.m_locdata:
+            if name == v.m_name:
+                return v
         for v in self.m_locdata:
             if name in v:
+                return v
+        return None
+
+    def getnebysiteid(self,siteid):
+        for v in self.m_locdata:
+            if siteid == v.m_id:
                 return v
         return None
 
@@ -208,6 +223,7 @@ class Warning:
         location = self.m_location
         locname = None
         locno = None
+        locid = None
         if self.m_type == TP3:
             idx = location.find("BN:ME{")
             endidx = location.find("}",idx)
@@ -239,7 +255,7 @@ class Warning:
         elif self.m_type in [TP9, NOTP5]:
             idx = location.find("Site ID:")
             dotidx = location.find(",",idx)
-            locno = location[idx+len("Site ID:"):dotidx]
+            locid = location[idx+len("Site ID:"):dotidx]
         else:
             idx = location.find(",")
             if idx != -1:
@@ -249,6 +265,8 @@ class Warning:
             return locname
         elif locno is not None:
             return locno
+        elif locid is not None:
+            return locid
         else:
             return None
 
@@ -256,6 +274,7 @@ class Warning:
         location = self.m_location
         locname = None
         locno = None
+        locid = None
         if self.m_type == TP3:
             idx = location.find("BN:ME{")
             endidx = location.find("}",idx)
@@ -290,7 +309,7 @@ class Warning:
         elif self.m_type in [TP9, NOTP5]:
             idx = location.find("Site ID:")
             dotidx = location.find(",",idx)
-            locno = location[idx+len("Site ID:"):dotidx]
+            locid = location[idx+len("Site ID:"):dotidx]
             # print "locname:=================",locname,idx,dotidx
             # print location
         else:
@@ -301,7 +320,9 @@ class Warning:
         if locname is not None:
             return topo.getnebyname(locname)
         elif locno is not None:
-            return topo.getne(locno)
+            return topo.getnebyno(locno)
+        elif locid is not None:
+            return topo.getnebysiteid(locid)
         else:
             return None
 
@@ -319,16 +340,29 @@ class TestWarning:
         self.m_topo = TopoInfo()
 
     def testfound(self):
-        fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,23)]
+        # fnamelist = ["../wrongdocfile",]
+        # fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,23)]
+        fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,32)] + \
+            ["../110"+str(v)+".csv" for v in xrange(01,10)] + \
+            ["../11"+str(v)+".csv" for v in xrange(10,31)] + \
+            ["../120"+str(v)+".csv" for v in xrange(01,10)] + \
+            ["../12"+str(v)+".csv" for v in xrange(10,23)]
         cnt = 0
         found = 0
         wholeresult = {}
-        # writefile = open("../cleandata","w")
+        writefile = open("../cleandata","w")
+
+        wrongdocflag = True
+
+        if wrongdocflag:
+            wrongdocfile = open("../wrongdocfile","w")
+            wrongdocfile.write(",".join(['"ALARMHAPPENTIME"','"ALARMCODE"','"LOCATION"','"SUMMARY"'])+"\n")
 
         missloc = {}
         for fname in fnamelist:
+            print fname
             filereader = FileReader(fname)
-            alarmcode = filereader.getattridx("ALARMCODE")
+            alarmcodeidx = filereader.getattridx("ALARMCODE")
             attridx = filereader.getattridx("SUMMARY")
             locidx= filereader.getattridx("LOCATION")
             timeidx = filereader.getattridx("ALARMHAPPENTIME")
@@ -343,6 +377,7 @@ class TestWarning:
 
                 summary = tmptran[attridx]
                 location = tmptran[locidx]
+                alarmcode = tmptran[alarmcodeidx]
                 warn = Warning(summary,location)
                 if warn.m_type == NOTP4:
                     continue
@@ -357,19 +392,26 @@ class TestWarning:
                 loc = warn.fetchloc(self.m_topo)
                 if loc is None:
                     locstr = warn.fetchlocstr()
-                    if locstr not in missloc:
-                        missloc[locstr] = 0
-                        print "==============================================="
-                        print warn.m_summary
-                        print "----------------------------------"
-                        print warn.m_location
-                        print "locstr:",warn.m_type,locstr
-                    missloc[locstr] += 1
+                    if warn.m_type != NOTP5 and warn.m_type != TP9:
+                    # if True:
+                        if locstr not in missloc:
+                            missloc[locstr] = 0
+                            print "==============================================="
+                            print warn.m_summary
+                            print "----------------------------------"
+                            print warn.m_location
+                            print "locstr:",warn.m_type,locstr
+                        missloc[locstr] += 1
+                    if wrongdocflag:
+                        wrongdocfile.write(",".join(['\"'+v+'\"' for v in \
+                        [tmptran[timeidx],tmptran[alarmcodeidx],tmptran[locidx],tmptran[attridx],]])+"\r\n")
                     continue
                 wholeresult[ftword]["good"] += 1
                 found += 1
-                # writefile.write(str(alarmcode)+"\t"+str(loc)+"\t"+tmptran[timeidx]+"\n")
-        # writefile.close()
+                writefile.write(str(alarmcode)+"\t"+str(loc)+"\t"+tmptran[timeidx]+"\n")
+        writefile.close()
+        if wrongdocflag:
+            wrongdocfile.close()
 
         print "result:"
         print "cnt:",cnt
@@ -389,8 +431,31 @@ class TestWarning:
         json.dump(wholeresult,open("tmpwholeresult","w"))
         json.dump(missloc,open("missloc","w"))
 
+def testwrongfile():
+    filereader = FileReader("../wrongdocfile")
+    alarmcodeidx = filereader.getattridx("ALARMCODE")
+    attridx = filereader.getattridx("SUMMARY")
+    locidx= filereader.getattridx("LOCATION")
+    timeidx = filereader.getattridx("ALARMHAPPENTIME")
+    print "idxdata:",timeidx,alarmcodeidx,locidx,attridx
+    print filereader.m_header
+    print filereader.m_headerlen
+    while True:
+        tmptran = filereader.readtransection()
+        if tmptran is None:
+            filereader.close()
+            break
+
+        summary = tmptran[attridx]
+        location = tmptran[locidx]
+        alarmcode = tmptran[alarmcodeidx]
+        timestr = tmptran[timeidx]
+        print tmptran
+        raw_input()
+
 if __name__ == "__main__":
     TestWarning().testfound()
+    # testwrongfile()
     # testnenamereplicate()
     # testinfunction()
     # TopoInfo().getnebyname("BH0040-BH0440  Sub S")
