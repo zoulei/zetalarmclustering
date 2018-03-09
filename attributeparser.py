@@ -342,11 +342,12 @@ class TestWarning:
     def testfound(self):
         # fnamelist = ["../wrongdocfile",]
         # fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,23)]
-        fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,32)] + \
-            ["../110"+str(v)+".csv" for v in xrange(01,10)] + \
-            ["../11"+str(v)+".csv" for v in xrange(10,31)] + \
-            ["../120"+str(v)+".csv" for v in xrange(01,10)] + \
-            ["../12"+str(v)+".csv" for v in xrange(10,23)]
+        fnamelist = ["../1125.csv",]
+        # fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,32)] + \
+        #     ["../110"+str(v)+".csv" for v in xrange(01,10)] + \
+        #     ["../11"+str(v)+".csv" for v in xrange(10,31)] + \
+        #     ["../120"+str(v)+".csv" for v in xrange(01,10)] + \
+        #     ["../12"+str(v)+".csv" for v in xrange(10,23)]
         cnt = 0
         found = 0
         wholeresult = {}
