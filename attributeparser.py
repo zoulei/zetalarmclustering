@@ -60,8 +60,9 @@ class TopoInfo:
                 else:
                     innm = innminfo[siteididx+len("BtsSiteMgr="):]
             else:
-                innm = innminfo[siteididx+len("BtsSiteMgr=BCF-"):]
-            self.m_locdata.append(NE(tmptran[noidx],tmptran[nameidx],innm))
+                # innm = innminfo[siteididx+len("BtsSiteMgr=BCF-"):]
+                innm = "-1"
+            self.m_locdata.append(NE(tmptran[noidx],tmptran[nameidx],tmptran[ididx]))
 
     def testifylocname(self,name):
         return name in self.m_locdata
@@ -90,6 +91,12 @@ class TopoInfo:
                 return v
         return None
 
+    def getnebyidentifier(self,identifier):
+        for v in self.m_locdata:
+            if identifier == v.m_id:
+                return v
+        return None
+
 def testnenamereplicate():
     topo = TopoInfo(full=True)
     cnt = 0
@@ -114,23 +121,11 @@ def testnenamereplicate():
         for j in xrange(idx + 1,len(topo.m_locdata)):
             neone = topo.m_locdata[idx]
             netwo = topo.m_locdata[j]
-            # if neone == netwo:
-            #     print idx,j,len(topo.m_locdata)
-            #     print "error:",str(neone),str(netwo)
-            #     cnt += 1
-            #     reduplicateidx.append(idx)
-            #     raise
-            if neone.m_no == netwo:
-                print idx,j,"------------"
-                print "no",str(neone)
-                print "no",str(netwo)
-            # elif neone.m_name == netwo:
-            #     print "name",str(neone),str(netwo)
-            if neone.m_id == netwo:
+            if neone.m_name == netwo.m_name:
                 print idx,j,"------------"
                 print "id",str(neone)
                 print "id",str(netwo)
-                raise
+                # raise
     print "cnt:",cnt
 
 class Warning:
@@ -342,12 +337,12 @@ class TestWarning:
     def testfound(self):
         # fnamelist = ["../wrongdocfile",]
         # fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,23)]
-        fnamelist = ["../1125.csv",]
-        # fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,32)] + \
-        #     ["../110"+str(v)+".csv" for v in xrange(01,10)] + \
-        #     ["../11"+str(v)+".csv" for v in xrange(10,31)] + \
-        #     ["../120"+str(v)+".csv" for v in xrange(01,10)] + \
-        #     ["../12"+str(v)+".csv" for v in xrange(10,23)]
+        # fnamelist = ["../1125.csv",]
+        fnamelist = ["../10"+str(v)+".csv" for v in xrange(22,32)] + \
+            ["../110"+str(v)+".csv" for v in xrange(01,10)] + \
+            ["../11"+str(v)+".csv" for v in xrange(10,31)] + \
+            ["../120"+str(v)+".csv" for v in xrange(01,10)] + \
+            ["../12"+str(v)+".csv" for v in xrange(10,23)]
         cnt = 0
         found = 0
         wholeresult = {}
@@ -367,6 +362,7 @@ class TestWarning:
             attridx = filereader.getattridx("SUMMARY")
             locidx= filereader.getattridx("LOCATION")
             timeidx = filereader.getattridx("ALARMHAPPENTIME")
+            identifieridx = filereader.getattridx("NEIDENTIFIER")
             cntidx = 0
             while True:
                 tmptran = filereader.readtransection()
@@ -379,6 +375,7 @@ class TestWarning:
                 summary = tmptran[attridx]
                 location = tmptran[locidx]
                 alarmcode = tmptran[alarmcodeidx]
+                identifier = tmptran[identifieridx]
                 warn = Warning(summary,location)
                 if warn.m_type == NOTP4:
                     continue
@@ -386,21 +383,21 @@ class TestWarning:
                 if ftword not in wholeresult:
                     wholeresult[ftword] = {"cnt":0,"good":0}
                 wholeresult[ftword]["cnt"] += 1
-                # content = warn.fetchsummarycontent()
-                # if content is None:
-                #     continue
                 cnt += 1
-                loc = warn.fetchloc(self.m_topo)
+                loc = self.m_topo.getnebyidentifier(identifier)
+                if loc is None:
+                    loc = warn.fetchloc(self.m_topo)
                 if loc is None:
                     locstr = warn.fetchlocstr()
                     if warn.m_type != NOTP5 and warn.m_type != TP9:
-                    # if True:
                         if locstr not in missloc:
                             missloc[locstr] = 0
                             print "==============================================="
                             print warn.m_summary
                             print "----------------------------------"
                             print warn.m_location
+                            print "----------------------------------"
+                            print identifier
                             print "locstr:",warn.m_type,locstr
                         missloc[locstr] += 1
                     if wrongdocflag:
@@ -409,7 +406,7 @@ class TestWarning:
                     continue
                 wholeresult[ftword]["good"] += 1
                 found += 1
-                writefile.write(str(alarmcode)+"\t"+str(loc)+"\t"+tmptran[timeidx]+"\n")
+                writefile.write(alarmcode+"\t"+identifier+"\t"+tmptran[timeidx]+"\n")
         writefile.close()
         if wrongdocflag:
             wrongdocfile.close()

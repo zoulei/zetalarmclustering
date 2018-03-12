@@ -37,9 +37,21 @@ def printne():
     topo = attributeparser.TopoInfo(full=True)
     print topo.m_locdata[4408]
     print topo.m_locdata[4409]
-
     print topo.m_locdata[4410]
 
+def printidentifier():
+    filereader = FileReader("../1022.csv")
+    identifieridx = filereader.getattridx("NEIDENTIFIER")
+    while True:
+        tmptran = filereader.readtransection()
+        identifier = tmptran[identifieridx]
+        if tmptran is None:
+            filereader.close()
+            break
+        print identifier
+        raw_input()
+
 if __name__ == "__main__":
-    printne()
+    # printne()
     # printinfo()
+    printidentifier()
