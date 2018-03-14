@@ -406,7 +406,7 @@ class TestWarning:
                     continue
                 wholeresult[ftword]["good"] += 1
                 found += 1
-                writefile.write(alarmcode+"\t"+identifier+"\t"+tmptran[timeidx]+"\n")
+                writefile.write(alarmcode+"\t"+loc.m_name+"\t"+tmptran[timeidx]+"\n")
         writefile.close()
         if wrongdocflag:
             wrongdocfile.close()
