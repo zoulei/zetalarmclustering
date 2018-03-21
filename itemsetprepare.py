@@ -82,7 +82,7 @@ def tongjicause(secstep=60):
 
     fpgobj = fpg.FPGrowth("../itemmining")
     fpgobj.load()
-    fpgobj.tongjicause(datadict,11000)
+    fpgobj.tongjicause(datadict,110000)
     fpgobj.save()
 
     # ofile = open("../itemmining","w")

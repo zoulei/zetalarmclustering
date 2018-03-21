@@ -49,6 +49,9 @@ class TopoInfo:
         filereader = FileReader("../NE_TOPO_INFO.csv")
         neidx = filereader.getattridx("NE_ID")
         parentidx = filereader.getattridx("PARENT_NE_ID")
+        empty = 0
+        nonempty = 0
+        halfempty = 0
         while True:
             tmptran = filereader.readtransection()
             if tmptran is None:
@@ -57,6 +60,14 @@ class TopoInfo:
             parentneid = tmptran[parentidx]
             childne = self.getnebysiteid(neid)
             parentne = self.getnebysiteid(parentneid)
+            if childne is None and parentne is None:
+                empty += 1
+                continue
+            elif childne is None or parentne is None:
+                halfempty += 1
+                continue
+            else:
+                nonempty += 1
             childnename = childne.m_name
             parentnename = parentne.m_name
 
@@ -66,6 +77,9 @@ class TopoInfo:
                 self.m_topodict[parentnename] = []
             self.m_topodict[childnename].append(parentnename)
             self.m_topodict[parentnename].append(childnename)
+        print "empty:",empty
+        print "halfempty:",halfempty
+        print "nonempty:",nonempty
 
     def loadloc(self):
         filereader= FileReader("../NE_INFO.csv")
@@ -479,9 +493,13 @@ def testwrongfile():
         print tmptran
         raw_input()
 
+def testtopo():
+    topo = TopoInfo()
+
 if __name__ == "__main__":
-    TestWarning().testfound()
+    # TestWarning().testfound()
     # testwrongfile()
     # testnenamereplicate()
     # testinfunction()
     # TopoInfo().getnebyname("BH0040-BH0440  Sub S")
+    testtopo()
