@@ -5,10 +5,11 @@ from filereader import FileReader
 import json
 
 class NE:
-    def __init__(self,ne_no,ne_name,ne_innm):
+    def __init__(self,ne_no,ne_name,ne_innm,ne_id=None):
         self.m_no = ne_no
         self.m_name = ne_name
         self.m_id = ne_innm
+        self.m_neid = ne_id
 
     def __eq__(self,other):
         if isinstance(other,str):
@@ -17,10 +18,10 @@ class NE:
             return self.m_no == other.m_no and self.m_name == other.m_name and self.m_id == other.m_id
 
     def __hash__(self):
-        return "|||".join([self.m_no , self.m_name , self.m_id])
+        return "|||".join([self.m_no , self.m_name , self.m_id, self.m_neid])
 
     def __str__(self):
-        return "|||".join([self.m_no , self.m_name , self.m_id])
+        return "|||".join([self.m_no , self.m_name , self.m_id, self.m_neid])
 
     def __contains__(self, item):
         if item in self.m_name:
@@ -38,11 +39,37 @@ class TopoInfo:
         else:
             self.loaddistinctloc()
 
+        self.loadtopo()
+
     def loaddistinctloc(self):
         self.m_locdata = [NE(*v.split("|||")) for v in json.load(open("../distinctnedata"))]
 
+    def loadtopo(self):
+        self.m_topodict = {}
+        filereader = FileReader("../NE_TOPO_INFO.csv")
+        neidx = filereader.getattridx("NE_ID")
+        parentidx = filereader.getattridx("PARENT_NE_ID")
+        while True:
+            tmptran = filereader.readtransection()
+            if tmptran is None:
+                break
+            neid = tmptran[neidx]
+            parentneid = tmptran[parentidx]
+            childne = self.getnebysiteid(neid)
+            parentne = self.getnebysiteid(parentneid)
+            childnename = childne.m_name
+            parentnename = parentne.m_name
+
+            if childnename not in self.m_topodict:
+                self.m_topodict[childnename] = []
+            if parentnename not in self.m_topodict:
+                self.m_topodict[parentnename] = []
+            self.m_topodict[childnename].append(parentnename)
+            self.m_topodict[parentnename].append(childnename)
+
     def loadloc(self):
         filereader= FileReader("../NE_INFO.csv")
+        neididx = filereader.getattridx("NE_ID")
         noidx = filereader.getattridx("NE_NO")
         nameidx = filereader.getattridx("NE_NAME")
         ididx = filereader.getattridx("ID_IN_NM")
@@ -62,7 +89,7 @@ class TopoInfo:
             else:
                 # innm = innminfo[siteididx+len("BtsSiteMgr=BCF-"):]
                 innm = "-1"
-            self.m_locdata.append(NE(tmptran[noidx],tmptran[nameidx],tmptran[ididx]))
+            self.m_locdata.append(NE(tmptran[noidx],tmptran[nameidx],tmptran[ididx],tmptran[neididx]))
 
     def testifylocname(self,name):
         return name in self.m_locdata
@@ -87,7 +114,7 @@ class TopoInfo:
 
     def getnebysiteid(self,siteid):
         for v in self.m_locdata:
-            if siteid == v.m_id:
+            if siteid == v.m_neid:
                 return v
         return None
 
@@ -302,9 +329,10 @@ class Warning:
         elif self.m_type == NOTP4:
             pass
         elif self.m_type in [TP9, NOTP5]:
-            idx = location.find("Site ID:")
-            dotidx = location.find(",",idx)
-            locid = location[idx+len("Site ID:"):dotidx]
+            pass
+            # idx = location.find("Site ID:")
+            # dotidx = location.find(",",idx)
+            # locid = location[idx+len("Site ID:"):dotidx]
             # print "locname:=================",locname,idx,dotidx
             # print location
         else:
@@ -316,8 +344,8 @@ class Warning:
             return topo.getnebyname(locname)
         elif locno is not None:
             return topo.getnebyno(locno)
-        elif locid is not None:
-            return topo.getnebysiteid(locid)
+        # elif locid is not None:
+        #     return topo.getnebysiteid(locid)
         else:
             return None
 
