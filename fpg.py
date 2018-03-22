@@ -155,12 +155,12 @@ if __name__ == "__main__":
     # fpg.save()
     # fpg.printfeq()
 
-    # fpg = FPGrowth("../itemmining")
-    # fpg.load()
-    # fpg.printcauseinfo()
-
     fpg = FPGrowth("../itemmining")
-    fpg.run()
-    fpg.save()
     fpg.load()
-    print fpg.m_tranmap.keys()
+    fpg.printcauseinfo()
+
+    # fpg = FPGrowth("../itemmining")
+    # fpg.run()
+    # fpg.save()
+    # fpg.load()
+    # print fpg.m_tranmap.keys()
