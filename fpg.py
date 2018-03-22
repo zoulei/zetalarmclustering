@@ -2,6 +2,28 @@ import itertools
 import json
 import copy
 import os
+import time
+
+class DistinctWarning:
+    def __init__(self, alarmcode = None, nename = None, warnstr = None):
+        self.m_alarmcode = alarmcode
+        self.m_nename = nename
+        if warnstr:
+            self.loadfromstr(warnstr)
+
+    def loadfromstr(self,warnstr):
+        spaceidx = warnstr.find(" ")
+        self.m_alarmcode = warnstr[:spaceidx]
+        self.m_nename = warnstr[spaceidx + 1:]
+
+    def __str__(self):
+        return self.m_alarmcode + " " + self.m_nename
+
+    def __hash__(self):
+        return self.__str__()
+
+    def __eq__(self, other):
+        return self.m_alarmcode == other.m_alarmcode and self.m_nename == other.m_nename
 
 class FPGrowth:
     def __init__(self,fname=None):
@@ -29,9 +51,9 @@ class FPGrowth:
             idx += 1
             if idx % 1000 == 0:
                 print idx
-            data = line.strip().split(" ")
+            data = line.strip().split("\t")
             for v in data:
-                transet.add(v)
+                transet.add(DistinctWarning(warnstr = v))
         for idx,v in enumerate(list(transet)):
             self.m_tranmap[v] = idx
         ifile.close()
@@ -49,7 +71,7 @@ class FPGrowth:
             idx += 1
             if idx % 1000 == 0:
                 print idx
-            data = line.strip().split(" ")
+            data = line.strip().split("\t")
             for v in itertools.combinations(data,2):
                 key0 = self.m_tranmap[v[0]]
                 key1 = self.m_tranmap[v[1]]
@@ -57,6 +79,7 @@ class FPGrowth:
                     self.m_itemsets[key0][key1] += 1
                 else:
                     self.m_itemsets[key1][key0] += 1
+        ifile.close()
 
         self.m_itemsetsrate = copy.deepcopy(self.m_itemsets)
         for idx in xrange(itemlen):
@@ -149,18 +172,63 @@ class FPGrowth:
                 doubledir += 1
         print singledir,doubledir
 
+    def clusterdata(self, fname, secstep = 60):
+        ifile = open(fname)
+        notime = 0
+        wrongcnt = 0
+        datadict = {}
+        for line in ifile:
+            try:
+                alarmcode,nename,happentime = line.strip().split("\t")
+            except KeyboardInterrupt:
+                raise
+            except:
+                notime += 1
+                continue
+            try:
+                timesec = time.mktime( time.strptime(happentime,"%Y/%m/%d %H:%M:%S") )
+            except:
+                wrongcnt += 1
+                continue
+            key = int(timesec) / secstep
+            if key not in datadict:
+                datadict[key] = {}
+            warninfo = DistinctWarning(alarmcode,nename)
+            if warninfo not in datadict[key] or datadict[key][warninfo] > timesec:
+                datadict[key][warninfo] = timesec
+
+        self.combineslot(datadict)
+
+
+    def combineslot(self,datadict):
+        keylist = datadict.keys()
+        keylist.sort()
+        minslot = keylist[0]
+        maxslot = keylist[1]
+        keylist = range(minslot,maxslot +1)
+        for idx in xrange(len(keylist) - 1,0,-1):
+            combinedkey = keylist[idx]
+            markkey = keylist[idx - 1]
+            for warninfo in datadict[markkey]:
+                if warninfo in datadict[combinedkey]:
+                    del datadict[combinedkey][warninfo]
+
 if __name__ == "__main__":
     # fpg = FPGrowth("../itemmining")
     # fpg.run()
     # fpg.save()
     # fpg.printfeq()
 
-    fpg = FPGrowth("../itemmining")
-    fpg.load()
-    fpg.printcauseinfo()
+    # fpg = FPGrowth("../itemmining")
+    # fpg.load()
+    # fpg.printcauseinfo()
 
     # fpg = FPGrowth("../itemmining")
     # fpg.run()
     # fpg.save()
     # fpg.load()
     # print fpg.m_tranmap.keys()
+
+    a = [DistinctWarning("12","nename"), DistinctWarning("55","nename")]
+    print DistinctWarning("12","nename") in a
+    print "\t".join(a)

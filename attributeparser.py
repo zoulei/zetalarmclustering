@@ -388,9 +388,11 @@ class TestWarning:
         cnt = 0
         found = 0
         wholeresult = {}
-        writefile = open("../cleandata","w")
+        writeflag = False
+        if writeflag:
+            writefile = open("../cleandata","w")
 
-        wrongdocflag = True
+        wrongdocflag = False
 
         if wrongdocflag:
             wrongdocfile = open("../wrongdocfile","w")
@@ -448,8 +450,10 @@ class TestWarning:
                     continue
                 wholeresult[ftword]["good"] += 1
                 found += 1
-                writefile.write(alarmcode+"\t"+loc.m_name+"\t"+tmptran[timeidx]+"\n")
-        writefile.close()
+                if writeflag:
+                    writefile.write(alarmcode+"\t"+loc.m_name+"\t"+tmptran[timeidx]+"\n")
+        if writeflag:
+            writefile.close()
         if wrongdocflag:
             wrongdocfile.close()
 
@@ -497,9 +501,9 @@ def testtopo():
     topo = TopoInfo()
 
 if __name__ == "__main__":
-    # TestWarning().testfound()
+    TestWarning().testfound()
     # testwrongfile()
     # testnenamereplicate()
     # testinfunction()
     # TopoInfo().getnebyname("BH0040-BH0440  Sub S")
-    testtopo()
+    # testtopo()
