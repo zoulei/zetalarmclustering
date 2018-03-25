@@ -107,12 +107,12 @@ def tongjicause(secstep=60):
     # ofile.close()
 
 if __name__ == "__main__":
-    generateitemsetminingrawdata()
+    # generateitemsetminingrawdata()
     # removeduplicate.removedup()
-    os.system("head -n 110000 ../itemmining > ../itemmining110000")
-    os.system("head -n 11000 ../itemmining > ../itemmining11000")
-    os.system("cp ../itemmining ../itemminingbackup")
-    os.system("cp ../itemmining11000 ../itemmining")
+    # os.system("head -n 110000 ../itemmining > ../itemmining110000")
+    # os.system("head -n 11000 ../itemmining > ../itemmining11000")
+    # os.system("cp ../itemmining ../itemminingbackup")
+    # os.system("cp ../itemmining11000 ../itemmining")
 
     fpgobj = fpg.FPGrowth("../itemmining")
     fpgobj.run()

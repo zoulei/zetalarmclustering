@@ -3,6 +3,8 @@ import json
 import copy
 import os
 import time
+import signal
+import multiprocessing
 
 class DistinctWarning:
     def __init__(self, alarmcode = None, nename = None, warnstr = None):
@@ -20,7 +22,7 @@ class DistinctWarning:
         return self.m_alarmcode + " " + self.m_nename
 
     def __hash__(self):
-        return self.__str__()
+        return hash(self.__str__())
 
     def __eq__(self, other):
         return self.m_alarmcode == other.m_alarmcode and self.m_nename == other.m_nename
@@ -67,11 +69,15 @@ class FPGrowth:
             self.m_itemsets.append([0]*itemlen)
         ifile = open(self.m_fname)
         idx = 0
+        linelist = []
         for line in ifile:
+            linelist.append(line)
             idx += 1
             if idx % 1000 == 0:
                 print idx
-            data = line.strip().split("\t")
+        ifile.close()
+        datalist = self.async(linelist)
+        for data in datalist:
             for v in itertools.combinations(data,2):
                 key0 = self.m_tranmap[v[0]]
                 key1 = self.m_tranmap[v[1]]
@@ -79,12 +85,33 @@ class FPGrowth:
                     self.m_itemsets[key0][key1] += 1
                 else:
                     self.m_itemsets[key1][key0] += 1
-        ifile.close()
 
         self.m_itemsetsrate = copy.deepcopy(self.m_itemsets)
+        idxxxx = 0
         for idx in xrange(itemlen):
+            idxxxx += 1
+            if idxxxx % 1000 == 0:
+                print idxxxx
             for idy in xrange(itemlen):
                 self.m_itemsetsrate[idx][idy] /= self.m_length * 1.0
+
+    def async(self,linelist):
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        pool = multiprocessing.Pool(15)
+        signal.signal(signal.SIGINT, original_sigint_handler)
+        try:
+            # result = self.m_pool.map_async(self.mainfunc, doclist)
+            result = pool.map_async(asyncfunc, linelist)
+            result = result.get(99999999)  # Without the timeout this blocking call ignores all signals.
+        except KeyboardInterrupt:
+            pool.terminate()
+            pool.close()
+            pool.join()
+            exit()
+        else:
+            pool.close()
+        pool.join()
+        return result
 
     def printfeq(self):
         fulldata = []
@@ -104,13 +131,19 @@ class FPGrowth:
         print self.m_length
 
     def save(self):
-        json.dump(self.m_tranmap,open("fpgtranmap","w"))
+        jsontranmap = {}
+        for key, value in self.m_tranmap.items():
+            jsontranmap[str(key)] = value
+        json.dump(jsontranmap,open("fpgtranmap","w"))
         json.dump(self.m_itemsets,open("fpgitemsets","w"))
         json.dump(self.m_itemsetsrate,open("fpgitemsetsrate","w"))
         json.dump(self.m_itemsetsroot,open("fpgitemsetsroot","w"))
 
     def load(self):
-        self.m_tranmap = json.load(open("fpgtranmap"))
+        jsontranmap = json.load(open("fpgtranmap"))
+        self.m_tranmap = {}
+        for key,value in jsontranmap.items():
+            self.m_tranmap[DistinctWarning(warnstr=key)] = value
         self.m_itemsets = json.load(open("fpgitemsets"))
         self.m_itemsetsrate = json.load(open("fpgitemsetsrate"))
         if os.path.exists("fpgitemsetsroot"):
@@ -199,7 +232,6 @@ class FPGrowth:
 
         self.combineslot(datadict)
 
-
     def combineslot(self,datadict):
         keylist = datadict.keys()
         keylist.sort()
@@ -212,6 +244,10 @@ class FPGrowth:
             for warninfo in datadict[markkey]:
                 if warninfo in datadict[combinedkey]:
                     del datadict[combinedkey][warninfo]
+
+def asyncfunc(line):
+    data = [DistinctWarning(warnstr=v) for v in line.strip().split("\t")]
+    return data
 
 if __name__ == "__main__":
     # fpg = FPGrowth("../itemmining")
