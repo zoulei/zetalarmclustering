@@ -499,6 +499,15 @@ def testwrongfile():
 
 def testtopo():
     topo = TopoInfo()
+    contain = 0
+    noncontain = 0
+    for ne in topo.m_locdata:
+        if ne.m_name in topo.m_topodict:
+            contain += 1
+        else:
+            noncontain += 1
+    print "contain:",contain
+    print "noncontain:",noncontain
 
 if __name__ == "__main__":
     TestWarning().testfound()
