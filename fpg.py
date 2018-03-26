@@ -9,6 +9,8 @@ import multiprocessing
 import shelve
 import attributeparser
 
+TRAIN = False
+
 class DistinctWarning:
     def __init__(self, alarmcode = None, nename = None, warnstr = None):
         self.m_alarmcode = alarmcode
@@ -195,7 +197,8 @@ class FPGrowth:
         self.m_tranmap = {}
         for key,value in jsontranmap.items():
             self.m_tranmap[DistinctWarning(warnstr=key)] = value
-        self.m_itemsets = shelve.open("fpgitemsets")
+        # self.m_itemsets = shelve.open("fpgitemsets")
+        self.m_itemsets = json.load(open("fpgitemsets"))
         # self.m_itemsetsrate = shelve.open("fpgitemsetsrate")
         if os.path.exists("fpgitemsetsroot"):
             self.m_itemsetsroot = json.load(open("fpgitemsetsroot"))
@@ -256,12 +259,13 @@ class FPGrowth:
                 doubledir += 1
         print singledir,doubledir
 
-    def clusterdata(self, fname, topo, ratethre = 0.2, secstep = 60):
+    def clusterdata(self, fname, ratethre = 0.2, secstep = 60):
         ifile = open(fname)
         notime = 0
         wrongcnt = 0
         datadict = {}
         doclen = 0
+        print "start to read test file"
         for line in ifile:
             try:
                 alarmcode,nename,happentime = line.strip().split("\t")
@@ -276,18 +280,25 @@ class FPGrowth:
                 wrongcnt += 1
                 continue
             doclen += 1
+            if doclen % 1000 == 0:
+                # print "read test file length:",doclen
+                pass
             key = int(timesec) / secstep
             if key not in datadict:
                 datadict[key] = {}
             warninfo = DistinctWarning(alarmcode,nename)
             if warninfo not in datadict[key] or datadict[key][warninfo] > timesec:
                 datadict[key][warninfo] = timesec
-
+        print "finish read test file"
         # 合并时间相近的告警
+        print "start to combine slot"
         self.combineslot(datadict)
+        print "finish combine slot"
 
         # 合并同一时间段内位置相邻的告警
-        rootcausedata = self.combinesinslot(datadict, topo, ratethre)
+        print "start to combine in slot"
+        rootcausedata = self.combinesinslot(datadict, ratethre)
+        print "finish combine in slot"
 
         writerootcausedata = {}
         for key in rootcausedata:
@@ -298,50 +309,88 @@ class FPGrowth:
 
         print "doclen:",doclen
         print "combinedlen:",sum([len(v) for v in rootcausedata.values()])
+        print "secstep:",secstep
+        print "compress rate:",sum([len(v) for v in rootcausedata.values()]) * 1.0 / doclen
 
     # 合并时间槽内部的告警
     # 首先对同一时间槽内的不同告警分别编号，每有两个告警被合并就将其编号进行合并
     # 那么需要根据告警查到这个编号，然后再根据这个编号查到所有告警，那么需要两个辅助dict
-    def combinesinslot(self,datadict,topo,ratethre):
+    def combinesinslot(self,datadict,ratethre):
         rootcausedata = {}
-        for key in datadict:
-            rootcausedata[str(key)] = {}
-            slotwarndict = datadict[key]
-            warnlist = slotwarndict.keys()
-            warn2nodict = dict(zip(warnlist,range(len(warnlist))))
-            no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
-            # 合并位置相邻的告警
-            for v in itertools.combinations(warnlist,2):
-                tranno1 = self.m_tranmap[v[0]]
-                tranno2 = self.m_tranmap[v[1]]
-                if tranno2 < tranno1:
-                    temp = tranno2
-                    tranno2 = tranno1
-                    tranno1 = temp
-                itemsetkey = str(tranno1) + " " + str(tranno2)
-                if self.m_itemsets.get(itemsetkey,0) * 1.0 / self.m_length < ratethre:
-                # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
-                    continue
-                if topo.adjoin(*v):
-                    warn1 = v[0]
-                    warn2 = v[1]
-                    no1 = warn2nodict[warn1]
-                    no2 = warn2nodict[warn2]
-                    for warn in no2warndict[no2]:
-                        warn2nodict[warn] = no1
-                    no2warndict[no1].extend(no2warndict[no1])
-                    del no2warndict[no1]
-            # 根因确定，选择时间最前的
-            for no in no2warndict:
-                warnlist = no2warndict[no]
-                oldesttime = slotwarndict[warnlist[0]]
-                rootcause = warnlist[0]
-                for warn in warnlist:
-                    if slotwarndict[warn] < oldesttime:
-                        oldesttime = slotwarndict[warn]
-                        rootcause = warn
-                rootcausedata[str(key)][str(no)] = rootcause
+        # idcount = 0
+        print "datadict length:",len(datadict)
+        datadictitems = datadict.items()
+        keylist = [v[0] for v in datadictitems]
+        dictlist = [v[1] for v in datadictitems]
+        idx = 0
+        for subdict in self.asynccombineinslot(dictlist,ratethre):
+            key = keylist[idx]
+            idx += 1
+            rootcausedata[str(key)] = subdict
+
+        # for key in datadict:
+        #     idcount += 1
+        #     if idcount % 10 == 0:
+        #         print "idcount:",idcount
+        #     rootcausedata[str(key)] = {}
+        #     slotwarndict = datadict[key]
+        #     warnlist = slotwarndict.keys()
+        #     warn2nodict = dict(zip(warnlist,range(len(warnlist))))
+        #     no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
+        #     # 合并位置相邻的告警
+        #     for v in itertools.combinations(warnlist,2):
+        #         tranno1 = self.m_tranmap.get(v[0],None)
+        #         tranno2 = self.m_tranmap.get(v[1],None)
+        #         if tranno1 is None or tranno2 is None:
+        #             continue
+        #         if tranno2 < tranno1:
+        #             temp = tranno2
+        #             tranno2 = tranno1
+        #             tranno1 = temp
+        #         itemsetkey = str(tranno1) + " " + str(tranno2)
+        #         if self.m_itemsets.get(itemsetkey,0) * 1.0 / self.m_length < ratethre:
+        #         # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
+        #             continue
+        #         if self.m_topo.adjoin(*v):
+        #             warn1 = v[0]
+        #             warn2 = v[1]
+        #             no1 = warn2nodict[warn1]
+        #             no2 = warn2nodict[warn2]
+        #             for warn in no2warndict[no2]:
+        #                 warn2nodict[warn] = no1
+        #             no2warndict[no1].extend(no2warndict[no1])
+        #             del no2warndict[no1]
+        #     # 根因确定，选择时间最前的
+        #     for no in no2warndict:
+        #         warnlist = no2warndict[no]
+        #         oldesttime = slotwarndict[warnlist[0]]
+        #         rootcause = warnlist[0]
+        #         for warn in warnlist:
+        #             if slotwarndict[warn] < oldesttime:
+        #                 oldesttime = slotwarndict[warn]
+        #                 rootcause = warn
+        #         rootcausedata[str(key)][str(no)] = rootcause
         return rootcausedata
+
+    def asynccombineinslot(self,dictlist,ratethre):
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        pool = multiprocessing.Pool(40)
+        signal.signal(signal.SIGINT, original_sigint_handler)
+        try:
+            # result = self.m_pool.map_async(self.mainfunc, doclist)
+            dictlen = len(dictlist)
+            para = zip([self.m_length]*dictlen,[self.m_itemsets]*dictlen,[ratethre]*dictlen,[self.m_topo]*dictlen,[self.m_tranmap]*dictlen,dictlist)
+            result = pool.map_async(asynccombineinslotfunc, para)
+            result = result.get(99999999)  # Without the timeout this blocking call ignores all signals.
+        except KeyboardInterrupt:
+            pool.terminate()
+            pool.close()
+            pool.join()
+            exit()
+        else:
+            pool.close()
+        pool.join()
+        return result
 
     # 此方法会补足所有时间槽
     def combineslot(self,datadict):
@@ -353,9 +402,53 @@ class FPGrowth:
         for idx in xrange(len(keylist) - 1,0,-1):
             combinedkey = keylist[idx]
             markkey = keylist[idx - 1]
-            for warninfo in datadict[markkey]:
-                if warninfo in datadict[combinedkey]:
+            for warninfo in datadict.get(markkey,[]):
+                if warninfo in datadict.get(combinedkey,[]):
                     del datadict[combinedkey][warninfo]
+
+def asynccombineinslotfunc(para):
+    length,itemsets,ratethre,topo,tranmap,slotwarndict = para
+    rootcausedata = {}
+    # slotwarndict = datadict[key]
+    warnlist = slotwarndict.keys()
+    warn2nodict = dict(zip(warnlist,range(len(warnlist))))
+    no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
+    # 合并位置相邻的告警
+    for v in itertools.combinations(warnlist,2):
+        tranno1 = tranmap.get(v[0],None)
+        tranno2 = tranmap.get(v[1],None)
+        if tranno1 is None or tranno2 is None:
+            continue
+        if tranno2 < tranno1:
+            temp = tranno2
+            tranno2 = tranno1
+            tranno1 = temp
+        if TRAIN:
+            itemsetkey = str(tranno1) + " " + str(tranno2)
+
+            if itemsets.get(itemsetkey,0) * 1.0 / length < ratethre:
+            # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
+                continue
+        if topo.adjoin(*v):
+            warn1 = v[0]
+            warn2 = v[1]
+            no1 = warn2nodict[warn1]
+            no2 = warn2nodict[warn2]
+            for warn in no2warndict[no2]:
+                warn2nodict[warn] = no1
+            no2warndict[no1].extend(no2warndict[no1])
+            del no2warndict[no1]
+    # 根因确定，选择时间最前的
+    for no in no2warndict:
+        warnlist = no2warndict[no]
+        oldesttime = slotwarndict[warnlist[0]]
+        rootcause = warnlist[0]
+        for warn in warnlist:
+            if slotwarndict[warn] < oldesttime:
+                oldesttime = slotwarndict[warn]
+                rootcause = warn
+        rootcausedata[str(no)] = rootcause
+    return rootcausedata
 
 def asyncfunc(para):
     topo,tranmap,line = para
@@ -382,6 +475,14 @@ def genitemsets():
         if key not in itemsets:
             itemsets[key] = 0
         itemsets[key] += 1
+    ifile.close()
+    length = 0
+    ifile = open("../itemmining")
+    for line in ifile:
+        length += 1
+    length *= 1.0
+    for key in itemsets.keys():
+        itemsets[key] /= length
     json.dump(itemsets,open("fpgitemsets","w"))
 
 if __name__ == "__main__":
@@ -391,9 +492,13 @@ if __name__ == "__main__":
     # fpg.save()
     # fpg.printfeq()
 
-    # fpg = FPGrowth("../itemmining")
-    # fpg.load()
-    # fpg.printcauseinfo()
+    fpg = FPGrowth("../itemmining")
+    if TRAIN:
+        fpg.run()
+    else:
+        fpg.load()
+    for step in [v*30 for v in xrange(1,101)]:
+        fpg.clusterdata("../testdata",0)
 
     # fpg = FPGrowth("../itemmining")
     # fpg.run()
@@ -405,5 +510,11 @@ if __name__ == "__main__":
     # print DistinctWarning("12","nename") in a
     # print "\t".join(a)
 
-    testdict = shelve.open("fpgitemsets")
-    testdict["6357"]
+    # testdict = shelve.open("fpgitemsets")
+    # testdict["6357"]
+
+    # genitemsets()
+    # itemsets = json.load(open("fpgitemsets"))
+    # valuelist = itemsets.values()
+    # valuelist.sort()
+    # print valuelist[-1000:]
