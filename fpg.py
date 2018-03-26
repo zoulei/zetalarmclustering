@@ -77,7 +77,11 @@ class FPGrowth:
                 print idx
         ifile.close()
         datalist = self.async(linelist)
+        idx = 0
         for data in datalist:
+            idx += 1
+            if idx % 1000 == 0:
+                print "datalist:",idx
             for v in itertools.combinations(data,2):
                 key0 = self.m_tranmap[v[0]]
                 key1 = self.m_tranmap[v[1]]
