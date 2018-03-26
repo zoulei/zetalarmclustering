@@ -41,6 +41,9 @@ class TopoInfo:
 
         self.loadtopo()
 
+    def adjoin(self, nename1, nename2):
+        return nename1 in self.m_topodict and nename2 in self.m_topodict[nename1]
+
     def loaddistinctloc(self):
         self.m_locdata = [NE(*v.split("|||")) for v in json.load(open("../distinctnedata"))]
 

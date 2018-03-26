@@ -1,3 +1,4 @@
+# -*- coding:utf-8 -*-
 import itertools
 import json
 import copy
@@ -5,6 +6,8 @@ import os
 import time
 import signal
 import multiprocessing
+import shelve
+import attributeparser
 
 class DistinctWarning:
     def __init__(self, alarmcode = None, nename = None, warnstr = None):
@@ -32,6 +35,7 @@ class FPGrowth:
         self.m_fname = fname
         self.initdocname()
         self.m_itemsetsroot = {}
+        self.m_topo = attributeparser.TopoInfo()
 
     def initdocname(self):
         self.m_length = 0
@@ -41,8 +45,10 @@ class FPGrowth:
 
     def genreversemap(self):
         self.m_reversemap = {}
+        print "gen reversemap"
         for key,value in self.m_tranmap.items():
             self.m_reversemap[value] = key
+        print "over reversemap"
 
     def genmap(self):
         self.m_tranmap = {}
@@ -52,60 +58,101 @@ class FPGrowth:
         for line in ifile:
             idx += 1
             if idx % 1000 == 0:
-                print idx
+                print "genmap:",idx
             data = line.strip().split("\t")
             for v in data:
                 transet.add(DistinctWarning(warnstr = v))
+        print "len transet:",len(transet)
         for idx,v in enumerate(list(transet)):
             self.m_tranmap[v] = idx
         ifile.close()
+        print "tranmap gen over"
         self.genreversemap()
 
     def run(self):
-        self.genmap()
+        # self.genmap()
+        jsontranmap = json.load(open("fpgtranmap"))
+        self.m_tranmap = {}
+        for key,value in jsontranmap.items():
+            self.m_tranmap[DistinctWarning(warnstr=key)] = value
         itemlen = len(self.m_tranmap)
-        self.m_itemsets = []
-        for idx in xrange(itemlen):
-            self.m_itemsets.append([0]*itemlen)
+        # itemlen = 100
+        # if os.path.exists("fpgitemsets"):
+        #     os.remove("fpgitemsets")
+        # self.m_itemsets = shelve.open("fpgitemsets","c")
+        # for idx in xrange(itemlen):
+        #     print "genmap:",idx
+        #     self.m_itemsets[str(idx)] = {}
+        #     keylist = range(idx + 1,itemlen)
+        #     valuedict = dict(zip([str(v) for v in keylist],[0]*len(keylist)))
+        #     self.m_itemsets[str(idx)] = valuedict
+        # self.m_itemsets.close()
+        # os.system("cp fpgitemsets fpgitemsetsbackup")
+        # return
+        # os.system("cp fpgitemsetsbackup fpgitemsets")
+        # self.m_itemsets = shelve.open("fpgitemsets")
+
         ifile = open(self.m_fname)
         idx = 0
+        alllinelist = []
         linelist = []
         for line in ifile:
             linelist.append(line)
             idx += 1
             if idx % 1000 == 0:
                 print idx
-        ifile.close()
-        datalist = self.async(linelist)
-        idx = 0
-        for data in datalist:
-            idx += 1
-            if idx % 1000 == 0:
-                print "datalist:",idx
-            for v in itertools.combinations(data,2):
-                key0 = self.m_tranmap[v[0]]
-                key1 = self.m_tranmap[v[1]]
-                if key0 < key1:
-                    self.m_itemsets[key0][key1] += 1
-                else:
-                    self.m_itemsets[key1][key0] += 1
+            if idx % 1500 == 0:
+                alllinelist.append(linelist)
+                linelist = []
+        alllinelist.append(linelist)
+        print "endreadfile"
 
-        self.m_itemsetsrate = copy.deepcopy(self.m_itemsets)
-        idxxxx = 0
-        for idx in xrange(itemlen):
-            idxxxx += 1
-            if idxxxx % 1000 == 0:
-                print idxxxx
-            for idy in xrange(itemlen):
-                self.m_itemsetsrate[idx][idy] /= self.m_length * 1.0
+        ofile = open("../pairdata","w")
+        for linelist in alllinelist:
+            start = time.time()
+            print "start async",start
+            datalist = self.async(linelist)
+            print "end async",time.time() - start
+            idx = 0
+            for data in datalist:
+                idx += 1
+                if idx % 100 == 0:
+                    print "datalist:",idx
+                ofile.write("\n".join([" ".join(v) for v in data])+"\n")
+                # for v in data:
+                #     ofile.write()
+                #     try:
+                #         self.m_itemsets[v[0]][v[1]] += 1
+                #     except:
+                #         print "v:",v
+                #         raise
+                # for v in itertools.combinations(data,2):
+                #     key0 = self.m_tranmap[v[0]]
+                #     key1 = self.m_tranmap[v[1]]
+                #     if key0 < key1:
+                #         self.m_itemsets[str(key0)][str(key1)] += 1
+                #     else:
+                #         self.m_itemsets[str(key1)][str(key0)] += 1
+        ofile.close()
+        ifile.close()
+
+        # if os.path.exists("fpgitemsetsrate"):
+        #     os.remove("fpgitemsetsrate")
+        # self.m_itemsetsrate = open("fpgitemsetsrate","c")
+        # for idx in xrange(itemlen):
+        #     self.m_itemsetsrate[str(idx)] = {}
+        #     for idy in xrange(idx+1,itemlen):
+        #         self.m_itemsetsrate[str(idx)][str(idy)] = self.m_itemsets * 1.0 / self.m_length
+        # self.m_itemsets
+        # self.m_itemsetsrate.close()
 
     def async(self,linelist):
         original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
-        pool = multiprocessing.Pool(15)
+        pool = multiprocessing.Pool(40)
         signal.signal(signal.SIGINT, original_sigint_handler)
         try:
             # result = self.m_pool.map_async(self.mainfunc, doclist)
-            result = pool.map_async(asyncfunc, linelist)
+            result = pool.map_async(asyncfunc, zip([self.m_topo]*len(linelist),[self.m_tranmap]*len(linelist),linelist))
             result = result.get(99999999)  # Without the timeout this blocking call ignores all signals.
         except KeyboardInterrupt:
             pool.terminate()
@@ -139,8 +186,8 @@ class FPGrowth:
         for key, value in self.m_tranmap.items():
             jsontranmap[str(key)] = value
         json.dump(jsontranmap,open("fpgtranmap","w"))
-        json.dump(self.m_itemsets,open("fpgitemsets","w"))
-        json.dump(self.m_itemsetsrate,open("fpgitemsetsrate","w"))
+        # json.dump(self.m_itemsets,open("fpgitemsets","w"))
+        # json.dump(self.m_itemsetsrate,open("fpgitemsetsrate","w"))
         json.dump(self.m_itemsetsroot,open("fpgitemsetsroot","w"))
 
     def load(self):
@@ -148,8 +195,8 @@ class FPGrowth:
         self.m_tranmap = {}
         for key,value in jsontranmap.items():
             self.m_tranmap[DistinctWarning(warnstr=key)] = value
-        self.m_itemsets = json.load(open("fpgitemsets"))
-        self.m_itemsetsrate = json.load(open("fpgitemsetsrate"))
+        self.m_itemsets = shelve.open("fpgitemsets")
+        # self.m_itemsetsrate = shelve.open("fpgitemsetsrate")
         if os.path.exists("fpgitemsetsroot"):
             self.m_itemsetsroot = json.load(open("fpgitemsetsroot"))
 
@@ -209,11 +256,12 @@ class FPGrowth:
                 doubledir += 1
         print singledir,doubledir
 
-    def clusterdata(self, fname, secstep = 60):
+    def clusterdata(self, fname, topo, ratethre = 0.2, secstep = 60):
         ifile = open(fname)
         notime = 0
         wrongcnt = 0
         datadict = {}
+        doclen = 0
         for line in ifile:
             try:
                 alarmcode,nename,happentime = line.strip().split("\t")
@@ -227,6 +275,7 @@ class FPGrowth:
             except:
                 wrongcnt += 1
                 continue
+            doclen += 1
             key = int(timesec) / secstep
             if key not in datadict:
                 datadict[key] = {}
@@ -234,8 +283,67 @@ class FPGrowth:
             if warninfo not in datadict[key] or datadict[key][warninfo] > timesec:
                 datadict[key][warninfo] = timesec
 
+        # 合并时间相近的告警
         self.combineslot(datadict)
 
+        # 合并同一时间段内位置相邻的告警
+        rootcausedata = self.combinesinslot(datadict, topo, ratethre)
+
+        writerootcausedata = {}
+        for key in rootcausedata:
+            slotdata = rootcausedata[key]
+            writekey = str(key)
+            writerootcausedata[writekey] = dict([[v[0],str(v[1])] for v in slotdata.items()])
+        json.dump(writerootcausedata,open("fpgrootcausedata","w"))
+
+        print "doclen:",doclen
+        print "combinedlen:",sum([len(v) for v in rootcausedata.values()])
+
+    # 合并时间槽内部的告警
+    # 首先对同一时间槽内的不同告警分别编号，每有两个告警被合并就将其编号进行合并
+    # 那么需要根据告警查到这个编号，然后再根据这个编号查到所有告警，那么需要两个辅助dict
+    def combinesinslot(self,datadict,topo,ratethre):
+        rootcausedata = {}
+        for key in datadict:
+            rootcausedata[str(key)] = {}
+            slotwarndict = datadict[key]
+            warnlist = slotwarndict.keys()
+            warn2nodict = dict(zip(warnlist,range(len(warnlist))))
+            no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
+            # 合并位置相邻的告警
+            for v in itertools.combinations(warnlist,2):
+                tranno1 = self.m_tranmap[v[0]]
+                tranno2 = self.m_tranmap[v[1]]
+                if tranno2 < tranno1:
+                    temp = tranno2
+                    tranno2 = tranno1
+                    tranno1 = temp
+                itemsetkey = str(tranno1) + " " + str(tranno2)
+                if self.m_itemsets.get(itemsetkey,0) * 1.0 / self.m_length < ratethre:
+                # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
+                    continue
+                if topo.adjoin(*v):
+                    warn1 = v[0]
+                    warn2 = v[1]
+                    no1 = warn2nodict[warn1]
+                    no2 = warn2nodict[warn2]
+                    for warn in no2warndict[no2]:
+                        warn2nodict[warn] = no1
+                    no2warndict[no1].extend(no2warndict[no1])
+                    del no2warndict[no1]
+            # 根因确定，选择时间最前的
+            for no in no2warndict:
+                warnlist = no2warndict[no]
+                oldesttime = slotwarndict[warnlist[0]]
+                rootcause = warnlist[0]
+                for warn in warnlist:
+                    if slotwarndict[warn] < oldesttime:
+                        oldesttime = slotwarndict[warn]
+                        rootcause = warn
+                rootcausedata[str(key)][str(no)] = rootcause
+        return rootcausedata
+
+    # 此方法会补足所有时间槽
     def combineslot(self,datadict):
         keylist = datadict.keys()
         keylist.sort()
@@ -249,11 +357,35 @@ class FPGrowth:
                 if warninfo in datadict[combinedkey]:
                     del datadict[combinedkey][warninfo]
 
-def asyncfunc(line):
+def asyncfunc(para):
+    topo,tranmap,line = para
     data = [DistinctWarning(warnstr=v) for v in line.strip().split("\t")]
-    return data
+    combinelist = []
+    for v in itertools.combinations(data,2):
+        key0 = tranmap.get(v[0],None)
+        key1 = tranmap.get(v[1],None)
+        if key0 is None or key1 is None:
+            continue
+        if not topo.adjoin(v[0].m_nename,v[1].m_nename):
+            continue
+        if key0 < key1:
+            combinelist.append([str(key0),str(key1)])
+        else:
+            combinelist.append([str(key1),str(key0)])
+    return combinelist
+
+def genitemsets():
+    ifile = open("../pairdata")
+    itemsets = {}
+    for line in ifile:
+        key = line.strip()
+        if key not in itemsets:
+            itemsets[key] = 0
+        itemsets[key] += 1
+    json.dump(itemsets,open("fpgitemsets","w"))
 
 if __name__ == "__main__":
+    pass
     # fpg = FPGrowth("../itemmining")
     # fpg.run()
     # fpg.save()
@@ -269,6 +401,9 @@ if __name__ == "__main__":
     # fpg.load()
     # print fpg.m_tranmap.keys()
 
-    a = [DistinctWarning("12","nename"), DistinctWarning("55","nename")]
-    print DistinctWarning("12","nename") in a
-    print "\t".join(a)
+    # a = [DistinctWarning("12","nename"), DistinctWarning("55","nename")]
+    # print DistinctWarning("12","nename") in a
+    # print "\t".join(a)
+
+    testdict = shelve.open("fpgitemsets")
+    testdict["6357"]
