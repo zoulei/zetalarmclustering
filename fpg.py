@@ -8,6 +8,7 @@ import signal
 import multiprocessing
 import shelve
 import attributeparser
+import traceback
 
 TRAIN = False
 
@@ -295,6 +296,12 @@ class FPGrowth:
         self.combineslot(datadict)
         print "finish combine slot"
 
+        print "doclen:",doclen
+        print "combinedlen:",sum([len(v) for v in datadict.values()])
+        print "secstep:",secstep
+        cmprate = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
+        print "compress rate:",cmprate
+
         # 合并同一时间段内位置相邻的告警
         print "start to combine in slot"
         rootcausedata = self.combinesinslot(datadict, ratethre)
@@ -310,7 +317,9 @@ class FPGrowth:
         print "doclen:",doclen
         print "combinedlen:",sum([len(v) for v in rootcausedata.values()])
         print "secstep:",secstep
-        print "compress rate:",sum([len(v) for v in rootcausedata.values()]) * 1.0 / doclen
+        cmprate1 = sum([len(v) for v in rootcausedata.values()]) * 1.0 / doclen
+        print "compress rate:",cmprate1
+        print "diff:",cmprate - cmprate1
 
     # 合并时间槽内部的告警
     # 首先对同一时间槽内的不同告警分别编号，每有两个告警被合并就将其编号进行合并
@@ -327,49 +336,6 @@ class FPGrowth:
             key = keylist[idx]
             idx += 1
             rootcausedata[str(key)] = subdict
-
-        # for key in datadict:
-        #     idcount += 1
-        #     if idcount % 10 == 0:
-        #         print "idcount:",idcount
-        #     rootcausedata[str(key)] = {}
-        #     slotwarndict = datadict[key]
-        #     warnlist = slotwarndict.keys()
-        #     warn2nodict = dict(zip(warnlist,range(len(warnlist))))
-        #     no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
-        #     # 合并位置相邻的告警
-        #     for v in itertools.combinations(warnlist,2):
-        #         tranno1 = self.m_tranmap.get(v[0],None)
-        #         tranno2 = self.m_tranmap.get(v[1],None)
-        #         if tranno1 is None or tranno2 is None:
-        #             continue
-        #         if tranno2 < tranno1:
-        #             temp = tranno2
-        #             tranno2 = tranno1
-        #             tranno1 = temp
-        #         itemsetkey = str(tranno1) + " " + str(tranno2)
-        #         if self.m_itemsets.get(itemsetkey,0) * 1.0 / self.m_length < ratethre:
-        #         # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
-        #             continue
-        #         if self.m_topo.adjoin(*v):
-        #             warn1 = v[0]
-        #             warn2 = v[1]
-        #             no1 = warn2nodict[warn1]
-        #             no2 = warn2nodict[warn2]
-        #             for warn in no2warndict[no2]:
-        #                 warn2nodict[warn] = no1
-        #             no2warndict[no1].extend(no2warndict[no1])
-        #             del no2warndict[no1]
-        #     # 根因确定，选择时间最前的
-        #     for no in no2warndict:
-        #         warnlist = no2warndict[no]
-        #         oldesttime = slotwarndict[warnlist[0]]
-        #         rootcause = warnlist[0]
-        #         for warn in warnlist:
-        #             if slotwarndict[warn] < oldesttime:
-        #                 oldesttime = slotwarndict[warn]
-        #                 rootcause = warn
-        #         rootcausedata[str(key)][str(no)] = rootcause
         return rootcausedata
 
     def asynccombineinslot(self,dictlist,ratethre):
@@ -414,6 +380,7 @@ def asynccombineinslotfunc(para):
     warn2nodict = dict(zip(warnlist,range(len(warnlist))))
     no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
     # 合并位置相邻的告警
+    # try:
     for v in itertools.combinations(warnlist,2):
         tranno1 = tranmap.get(v[0],None)
         tranno2 = tranmap.get(v[1],None)
@@ -429,15 +396,17 @@ def asynccombineinslotfunc(para):
             if itemsets.get(itemsetkey,0) * 1.0 / length < ratethre:
             # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
                 continue
-        if topo.adjoin(*v):
+        if topo.adjoin(v[0].m_nename,v[1].m_nename):
             warn1 = v[0]
             warn2 = v[1]
             no1 = warn2nodict[warn1]
             no2 = warn2nodict[warn2]
+            if no1 == no2:
+                continue
             for warn in no2warndict[no2]:
                 warn2nodict[warn] = no1
-            no2warndict[no1].extend(no2warndict[no1])
-            del no2warndict[no1]
+            no2warndict[no1].extend(no2warndict[no2])
+            del no2warndict[no2]
     # 根因确定，选择时间最前的
     for no in no2warndict:
         warnlist = no2warndict[no]
@@ -448,6 +417,11 @@ def asynccombineinslotfunc(para):
                 oldesttime = slotwarndict[warn]
                 rootcause = warn
         rootcausedata[str(no)] = rootcause
+    # except:
+    #     traceback.print_exc()
+    #     print "warn2nodict:",warn2nodict
+    #     print "no2warndict:",no2warndict
+    #     raise
     return rootcausedata
 
 def asyncfunc(para):
