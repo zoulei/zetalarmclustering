@@ -498,7 +498,7 @@ if __name__ == "__main__":
     else:
         fpg.load()
     for step in [v*30 for v in xrange(1,101)]:
-        fpg.clusterdata("../testdata",0)
+        fpg.clusterdata("../testdata",secstep=step)
 
     # fpg = FPGrowth("../itemmining")
     # fpg.run()
