@@ -320,6 +320,21 @@ class FPGrowth:
         cmprate1 = sum([len(v) for v in rootcausedata.values()]) * 1.0 / doclen
         print "compress rate:",cmprate1
         print "diff:",cmprate - cmprate1
+        warnsamene = self.tongjineinfo(rootcausedata)
+        print "warsamene:", warnsamene * 1.0 / doclen
+        print "\n" * 5
+
+    def tongjineinfo(self, rootcausedata):
+        warnsamene = 0
+        for valuedict in rootcausedata.values():
+            warninfolist = valuedict.values()
+            neset = set()
+            for warn in warninfolist:
+                nename = warn.m_nename
+                neset.add(nename)
+            warnsamene += len(warninfolist) - len(neset)
+        return warnsamene
+
 
     # 合并时间槽内部的告警
     # 首先对同一时间槽内的不同告警分别编号，每有两个告警被合并就将其编号进行合并
