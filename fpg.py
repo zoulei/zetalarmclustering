@@ -10,7 +10,7 @@ import shelve
 import attributeparser
 import traceback
 
-TRAIN = False
+TRAIN = True
 
 class DistinctWarning:
     def __init__(self, alarmcode = None, nename = None, warnstr = None):
@@ -45,6 +45,7 @@ class FPGrowth:
         ifile = open(self.m_fname)
         for line in ifile:
             self.m_length += 1
+        ifile.close()
 
     def genreversemap(self):
         self.m_reversemap = {}
@@ -78,22 +79,6 @@ class FPGrowth:
         self.m_tranmap = {}
         for key,value in jsontranmap.items():
             self.m_tranmap[DistinctWarning(warnstr=key)] = value
-        itemlen = len(self.m_tranmap)
-        # itemlen = 100
-        # if os.path.exists("fpgitemsets"):
-        #     os.remove("fpgitemsets")
-        # self.m_itemsets = shelve.open("fpgitemsets","c")
-        # for idx in xrange(itemlen):
-        #     print "genmap:",idx
-        #     self.m_itemsets[str(idx)] = {}
-        #     keylist = range(idx + 1,itemlen)
-        #     valuedict = dict(zip([str(v) for v in keylist],[0]*len(keylist)))
-        #     self.m_itemsets[str(idx)] = valuedict
-        # self.m_itemsets.close()
-        # os.system("cp fpgitemsets fpgitemsetsbackup")
-        # return
-        # os.system("cp fpgitemsetsbackup fpgitemsets")
-        # self.m_itemsets = shelve.open("fpgitemsets")
 
         ifile = open(self.m_fname)
         idx = 0
@@ -111,7 +96,11 @@ class FPGrowth:
         print "endreadfile"
 
         ofile = open("../pairdata","w")
+        idy = 0
         for linelist in alllinelist:
+            idy += 1
+            if idy == 3:
+                break
             start = time.time()
             print "start async",start
             datalist = self.async(linelist)
@@ -122,32 +111,27 @@ class FPGrowth:
                 if idx % 100 == 0:
                     print "datalist:",idx
                 ofile.write("\n".join([" ".join(v) for v in data])+"\n")
-                # for v in data:
-                #     ofile.write()
-                #     try:
-                #         self.m_itemsets[v[0]][v[1]] += 1
-                #     except:
-                #         print "v:",v
-                #         raise
-                # for v in itertools.combinations(data,2):
-                #     key0 = self.m_tranmap[v[0]]
-                #     key1 = self.m_tranmap[v[1]]
-                #     if key0 < key1:
-                #         self.m_itemsets[str(key0)][str(key1)] += 1
-                #     else:
-                #         self.m_itemsets[str(key1)][str(key0)] += 1
         ofile.close()
         ifile.close()
 
-        # if os.path.exists("fpgitemsetsrate"):
-        #     os.remove("fpgitemsetsrate")
-        # self.m_itemsetsrate = open("fpgitemsetsrate","c")
-        # for idx in xrange(itemlen):
-        #     self.m_itemsetsrate[str(idx)] = {}
-        #     for idy in xrange(idx+1,itemlen):
-        #         self.m_itemsetsrate[str(idx)][str(idy)] = self.m_itemsets * 1.0 / self.m_length
-        # self.m_itemsets
-        # self.m_itemsetsrate.close()
+        self.m_itemsets = genitemsets()
+        self.genitemsetsrate()
+
+    def genitemsetsrate(self):
+        ifile = open(self.m_fname)
+        fulldata = {}
+        for line in ifile:
+            nodata = line.strip().split("\t")
+            for no in nodata:
+                if no not in fulldata:
+                    fulldata[no] = 0
+                fulldata[no] += 1
+
+        self.m_itemsetsrate = {}
+        for k,v in self.m_itemsets.items():
+            no1,no2 = k.split(" ")
+            negev = fulldata[no1] + fulldata[no2] - v * 2
+            self.m_itemsetsrate[k] = v * 1.0 / (negev + v)
 
     def async(self,linelist):
         original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -168,19 +152,19 @@ class FPGrowth:
         return result
 
     def printfeq(self):
-        fulldata = []
-        for v in self.m_itemsetsrate:
-            fulldata.extend(v)
+        fulldata = self.m_itemsetsrate.values()
         fulldata.sort()
         print "================================"
         print fulldata[-100:]
+        print "--------------------------------"
+        print fulldata[:100]
 
-        fulldata = []
-        for v in self.m_itemsets:
-            fulldata.extend(v)
+        fulldata = self.m_itemsets.values()
         fulldata.sort()
         print "================================"
         print fulldata[-100:]
+        print "--------------------------------"
+        print fulldata[:100]
 
         print self.m_length
 
@@ -190,7 +174,7 @@ class FPGrowth:
             jsontranmap[str(key)] = value
         json.dump(jsontranmap,open("fpgtranmap","w"))
         # json.dump(self.m_itemsets,open("fpgitemsets","w"))
-        # json.dump(self.m_itemsetsrate,open("fpgitemsetsrate","w"))
+        json.dump(self.m_itemsetsrate,open("fpgitemsetsrate","w"))
         json.dump(self.m_itemsetsroot,open("fpgitemsetsroot","w"))
 
     def load(self):
@@ -200,7 +184,7 @@ class FPGrowth:
             self.m_tranmap[DistinctWarning(warnstr=key)] = value
         # self.m_itemsets = shelve.open("fpgitemsets")
         self.m_itemsets = json.load(open("fpgitemsets"))
-        # self.m_itemsetsrate = shelve.open("fpgitemsetsrate")
+        self.m_itemsetsrate = json.load(open("fpgitemsetsrate"))
         if os.path.exists("fpgitemsetsroot"):
             self.m_itemsetsroot = json.load(open("fpgitemsetsroot"))
 
@@ -302,10 +286,24 @@ class FPGrowth:
         cmprate = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
         print "compress rate:",cmprate
 
+        # 合并同一时间段内所属NE相同的告警
+        print "start to combine in ne"
+        self.combineinne(datadict,ratethre)
+        print "finish combine in ne"
+        print "threshold:",ratethre
+        print "combinedlen:",sum([len(v) for v in datadict.values()])
+        print "secstep:",secstep
+        cmprate2 = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
+        print "compress rate:",cmprate2
+        print "diff:",cmprate - cmprate2
+
         # 合并同一时间段内位置相邻的告警
         print "start to combine in slot"
         rootcausedata = self.combinesinslot(datadict, ratethre)
         print "finish combine in slot"
+
+
+
 
         writerootcausedata = {}
         for key in rootcausedata:
@@ -319,7 +317,7 @@ class FPGrowth:
         print "secstep:",secstep
         cmprate1 = sum([len(v) for v in rootcausedata.values()]) * 1.0 / doclen
         print "compress rate:",cmprate1
-        print "diff:",cmprate - cmprate1
+        print "diff:",cmprate2 - cmprate1
         warnsamene = self.tongjineinfo(rootcausedata)
         print "warsamene:", warnsamene * 1.0 / doclen
         print "\n" * 5
@@ -335,6 +333,36 @@ class FPGrowth:
             warnsamene += len(warninfolist) - len(neset)
         return warnsamene
 
+    # 合并同一时间段内所属NE相同的告警
+    def combineinne(self,datadict,ratethre):
+        datadictitems = datadict.items()
+        keylist = [v[0] for v in datadictitems]
+        dictlist = [v[1] for v in datadictitems]
+        idx = 0
+        for subdict in self.asynccombineinne(dictlist,ratethre):
+            key = keylist[idx]
+            idx += 1
+            datadict[key] = subdict
+
+    def asynccombineinne(self,dictlist,ratethre):
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        pool = multiprocessing.Pool(40)
+        signal.signal(signal.SIGINT, original_sigint_handler)
+        try:
+            # result = self.m_pool.map_async(self.mainfunc, doclist)
+            dictlen = len(dictlist)
+            para = zip([self.m_length]*dictlen,[self.m_itemsetsrate]*dictlen,[ratethre]*dictlen,[self.m_topo]*dictlen,[self.m_tranmap]*dictlen,dictlist)
+            result = pool.map_async(asynccombineinnefunc, para)
+            result = result.get(99999999)  # Without the timeout this blocking call ignores all signals.
+        except KeyboardInterrupt:
+            pool.terminate()
+            pool.close()
+            pool.join()
+            exit()
+        else:
+            pool.close()
+        pool.join()
+        return result
 
     # 合并时间槽内部的告警
     # 首先对同一时间槽内的不同告警分别编号，每有两个告警被合并就将其编号进行合并
@@ -387,10 +415,14 @@ class FPGrowth:
                 if warninfo in datadict.get(combinedkey,[]):
                     del datadict[combinedkey][warninfo]
 
-def asynccombineinslotfunc(para):
+    def gethighestrate(self):
+        return max(self.m_itemsetsrate.values())
+
+def asynccombineinnefunc(para):
     length,itemsets,ratethre,topo,tranmap,slotwarndict = para
-    rootcausedata = {}
+    # rootcausedata = {}
     # slotwarndict = datadict[key]
+    newsubdict = {}
     warnlist = slotwarndict.keys()
     warn2nodict = dict(zip(warnlist,range(len(warnlist))))
     no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
@@ -411,6 +443,60 @@ def asynccombineinslotfunc(para):
             if itemsets.get(itemsetkey,0) * 1.0 / length < ratethre:
             # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
                 continue
+        # if topo.adjoin(v[0].m_nename,v[1].m_nename):
+            warn1 = v[0]
+            warn2 = v[1]
+            no1 = warn2nodict[warn1]
+            no2 = warn2nodict[warn2]
+            if no1 == no2:
+                continue
+            for warn in no2warndict[no2]:
+                warn2nodict[warn] = no1
+            no2warndict[no1].extend(no2warndict[no2])
+            del no2warndict[no2]
+    # 根因确定，选择时间最前的
+    for no in no2warndict:
+        warnlist = no2warndict[no]
+        oldesttime = slotwarndict[warnlist[0]]
+        rootcause = warnlist[0]
+        for warn in warnlist:
+            if slotwarndict[warn] < oldesttime:
+                oldesttime = slotwarndict[warn]
+                rootcause = warn
+        # rootcausedata[str(no)] = rootcause
+        newsubdict[rootcause] = slotwarndict[rootcause]
+    return newsubdict
+    # except:
+    #     traceback.print_exc()
+    #     print "warn2nodict:",warn2nodict
+    #     print "no2warndict:",no2warndict
+    #     raise
+    # return rootcausedata
+
+def asynccombineinslotfunc(para):
+    length,itemsets,ratethre,topo,tranmap,slotwarndict = para
+    rootcausedata = {}
+    # slotwarndict = datadict[key]
+    warnlist = slotwarndict.keys()
+    warn2nodict = dict(zip(warnlist,range(len(warnlist))))
+    no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
+    # 合并位置相邻的告警
+    # try:
+    for v in itertools.combinations(warnlist,2):
+        # tranno1 = tranmap.get(v[0],None)
+        # tranno2 = tranmap.get(v[1],None)
+        # if tranno1 is None or tranno2 is None:
+        #     continue
+        # if tranno2 < tranno1:
+        #     temp = tranno2
+        #     tranno2 = tranno1
+        #     tranno1 = temp
+        # if TRAIN:
+        #     itemsetkey = str(tranno1) + " " + str(tranno2)
+        #
+        #     if itemsets.get(itemsetkey,0) * 1.0 / length < ratethre:
+        #     # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
+        #         continue
         if topo.adjoin(v[0].m_nename,v[1].m_nename):
             warn1 = v[0]
             warn2 = v[1]
@@ -448,8 +534,10 @@ def asyncfunc(para):
         key1 = tranmap.get(v[1],None)
         if key0 is None or key1 is None:
             continue
-        if not topo.adjoin(v[0].m_nename,v[1].m_nename):
+        if v[0].m_nename != v[1].m_nename:
             continue
+        # if not topo.adjoin(v[0].m_nename,v[1].m_nename):
+        #     continue
         if key0 < key1:
             combinelist.append([str(key0),str(key1)])
         else:
@@ -465,14 +553,8 @@ def genitemsets():
             itemsets[key] = 0
         itemsets[key] += 1
     ifile.close()
-    length = 0
-    ifile = open("../itemmining")
-    for line in ifile:
-        length += 1
-    length *= 1.0
-    for key in itemsets.keys():
-        itemsets[key] /= length
     json.dump(itemsets,open("fpgitemsets","w"))
+    return itemsets
 
 if __name__ == "__main__":
     pass
@@ -482,12 +564,15 @@ if __name__ == "__main__":
     # fpg.printfeq()
 
     fpg = FPGrowth("../itemmining")
-    if TRAIN:
-        fpg.run()
-    else:
-        fpg.load()
-    for step in [v*30 for v in xrange(1,101)]:
-        fpg.clusterdata("../testdata",secstep=step)
+    fpg.run()
+    fpg.save()
+    fpg.printfeq()
+    # if TRAIN:
+    #     fpg.run()
+    # else:
+    #     fpg.load()
+    # for step in [v*30 for v in xrange(1,101)]:
+    #     fpg.clusterdata("../testdata",secstep=step)
 
     # fpg = FPGrowth("../itemmining")
     # fpg.run()
@@ -507,3 +592,4 @@ if __name__ == "__main__":
     # valuelist = itemsets.values()
     # valuelist.sort()
     # print valuelist[-1000:]
+

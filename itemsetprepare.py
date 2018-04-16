@@ -114,8 +114,17 @@ if __name__ == "__main__":
     # os.system("cp ../itemmining ../itemminingbackup")
     # os.system("cp ../itemmining11000 ../itemmining")
 
-    fpgobj = fpg.FPGrowth("../itemmining")
-    fpgobj.run()
-    fpgobj.save()
+    # fpgobj = fpg.FPGrowth("../itemmining")
+    # fpgobj.run()
+    # fpgobj.save()
     # fpgobj.load()
     # tongjicause()
+
+    for step in [v*60 for v in xrange(1,51)]:
+        generateitemsetminingrawdata(step)
+        fpgobj = fpg.FPGrowth("../itemmining")
+        fpgobj.run()
+        fpgobj.save()
+        highestthre = fpgobj.gethighestrate()
+        for thre in [highestthre / 2, highestthre / 3, highestthre / 4]:
+            fpgobj.clusterdata("../testdata",thre,step)
