@@ -74,11 +74,7 @@ class FPGrowth:
         self.genreversemap()
 
     def run(self):
-        # self.genmap()
-        jsontranmap = json.load(open("fpgtranmap"))
-        self.m_tranmap = {}
-        for key,value in jsontranmap.items():
-            self.m_tranmap[DistinctWarning(warnstr=key)] = value
+        self.genmap()
 
         ifile = open(self.m_fname)
         idx = 0
@@ -97,10 +93,11 @@ class FPGrowth:
 
         ofile = open("../pairdata","w")
         idy = 0
+        # writedata = []
         for linelist in alllinelist:
             idy += 1
-            if idy == 3:
-                break
+            # if idy == 2:
+            #     break
             start = time.time()
             print "start async",start
             datalist = self.async(linelist)
@@ -110,9 +107,12 @@ class FPGrowth:
                 idx += 1
                 if idx % 100 == 0:
                     print "datalist:",idx
-                ofile.write("\n".join([" ".join(v) for v in data])+"\n")
+                if len(data) > 0:
+                    ofile.write("\n".join([" ".join(v) for v in data])+"\n")
+                # writedata.append("\n".join([" ".join(v) for v in data])+"\n")
         ofile.close()
         ifile.close()
+        # print "writedata:",writedata
 
         self.m_itemsets = genitemsets()
         self.genitemsetsrate()
@@ -123,13 +123,17 @@ class FPGrowth:
         for line in ifile:
             nodata = line.strip().split("\t")
             for no in nodata:
+                no = str(self.m_tranmap[DistinctWarning(warnstr=no)])
                 if no not in fulldata:
                     fulldata[no] = 0
                 fulldata[no] += 1
-
         self.m_itemsetsrate = {}
         for k,v in self.m_itemsets.items():
-            no1,no2 = k.split(" ")
+            try:
+                no1,no2 = k.split(" ")
+            except:
+                print "k:",k
+                raise
             negev = fulldata[no1] + fulldata[no2] - v * 2
             self.m_itemsetsrate[k] = v * 1.0 / (negev + v)
 
@@ -440,7 +444,7 @@ def asynccombineinnefunc(para):
         if TRAIN:
             itemsetkey = str(tranno1) + " " + str(tranno2)
 
-            if itemsets.get(itemsetkey,0) * 1.0 / length < ratethre:
+            if itemsets.get(itemsetkey,0) < ratethre:
             # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
                 continue
         # if topo.adjoin(v[0].m_nename,v[1].m_nename):
@@ -557,39 +561,18 @@ def genitemsets():
     return itemsets
 
 if __name__ == "__main__":
-    pass
-    # fpg = FPGrowth("../itemmining")
-    # fpg.run()
-    # fpg.save()
-    # fpg.printfeq()
+    fpg = FPGrowth("../itemmining")
+    fpg.run()
+    # fpg.m_itemsets = json.load(open("fpgitemsets"))
+    # fpg.genitemsetsrate()
 
+    raise
+
+    pass
     fpg = FPGrowth("../itemmining")
     fpg.run()
     fpg.save()
-    fpg.printfeq()
-    # if TRAIN:
-    #     fpg.run()
-    # else:
-    #     fpg.load()
-    # for step in [v*30 for v in xrange(1,101)]:
-    #     fpg.clusterdata("../testdata",secstep=step)
+    hr = fpg.gethighestrate()
+    fpg.clusterdata("../testdata",0.000000000001)
 
-    # fpg = FPGrowth("../itemmining")
-    # fpg.run()
-    # fpg.save()
-    # fpg.load()
-    # print fpg.m_tranmap.keys()
-
-    # a = [DistinctWarning("12","nename"), DistinctWarning("55","nename")]
-    # print DistinctWarning("12","nename") in a
-    # print "\t".join(a)
-
-    # testdict = shelve.open("fpgitemsets")
-    # testdict["6357"]
-
-    # genitemsets()
-    # itemsets = json.load(open("fpgitemsets"))
-    # valuelist = itemsets.values()
-    # valuelist.sort()
-    # print valuelist[-1000:]
 

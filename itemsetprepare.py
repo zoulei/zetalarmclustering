@@ -13,8 +13,8 @@ def generateitemsetminingrawdata(secstep=60):
     idx = 0
     for line in ifile:
         idx += 1
-        if idx % 1000 == 0:
-            print idx
+        if idx % 1000000 == 0:
+            print "generaterawdata:",idx
         try:
             alarmcode,nename,happentime = line.strip().split("\t")
         except KeyboardInterrupt:
@@ -49,12 +49,15 @@ def generateitemsetminingrawdata(secstep=60):
     keylist.sort()
     idx = 0
     testfile = open("../testdata","w")
-    for key in datadict:
-        if writefileflag:
-            ofile.write("\t".join([str(v) for v in datadict[key]])+"\n" )
+    endflag = len(keylist) * 8 / 10
+    for key in keylist:
         idx += 1
-        if idx > 110000:
+        if idx > endflag:
             testfile.write("".join(rawdatadict[key]))
+        else:
+            if writefileflag:
+                ofile.write("\t".join([str(v) for v in datadict[key]])+"\n" )
+
     if writefileflag:
         ofile.close()
     testfile.close()
@@ -101,30 +104,12 @@ def tongjicause(secstep=60):
     fpgobj.tongjicause(datadict,110000)
     fpgobj.save()
 
-    # ofile = open("../itemmining","w")
-    # for key in datadict:
-    #     ofile.write(" ".join(datadict[key])+"\n" )
-    # ofile.close()
-
 if __name__ == "__main__":
-    # generateitemsetminingrawdata()
-    # removeduplicate.removedup()
-    # os.system("head -n 110000 ../itemmining > ../itemmining110000")
-    # os.system("head -n 11000 ../itemmining > ../itemmining11000")
-    # os.system("cp ../itemmining ../itemminingbackup")
-    # os.system("cp ../itemmining11000 ../itemmining")
-
-    # fpgobj = fpg.FPGrowth("../itemmining")
-    # fpgobj.run()
-    # fpgobj.save()
-    # fpgobj.load()
-    # tongjicause()
-
     for step in [v*60 for v in xrange(1,51)]:
         generateitemsetminingrawdata(step)
         fpgobj = fpg.FPGrowth("../itemmining")
         fpgobj.run()
         fpgobj.save()
         highestthre = fpgobj.gethighestrate()
-        for thre in [highestthre / 2, highestthre / 3, highestthre / 4]:
+        for thre in [highestthre / 2, highestthre / 4, highestthre / 10]:
             fpgobj.clusterdata("../testdata",thre,step)
