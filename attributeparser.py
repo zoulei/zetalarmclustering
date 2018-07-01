@@ -48,6 +48,7 @@ class TopoInfo:
         self.m_locdata = [NE(*v.split("|||")) for v in json.load(open("../distinctnedata"))]
 
     def loadtopo(self):
+        self.m_directtopo = {}
         self.m_topodict = {}
         filereader = FileReader("../NE_TOPO_INFO.csv")
         neidx = filereader.getattridx("NE_ID")
@@ -78,11 +79,108 @@ class TopoInfo:
                 self.m_topodict[childnename] = []
             if parentnename not in self.m_topodict:
                 self.m_topodict[parentnename] = []
+            if parentnename not in self.m_directtopo:
+                self.m_directtopo[parentnename] = []
             self.m_topodict[childnename].append(parentnename)
             self.m_topodict[parentnename].append(childnename)
+            self.m_directtopo[parentnename].append(childnename)
         print "empty:",empty
         print "halfempty:",halfempty
         print "nonempty:",nonempty
+
+    def nodirecthascircle(self):
+        import copy
+        topodict = copy.deepcopy(self.m_topodict)
+        while True:
+            keyvalues = topodict.items()
+            for key, valuelist in keyvalues:
+                if len(valuelist) == 0:
+                    del topodict[key]
+                    break
+                if len(valuelist) == 1:
+                    del topodict[key]
+                    topodict[valuelist[0]].remove(key)
+                    break
+            else:
+                break
+        print "remove circle size:", len(topodict)
+
+    def directhascircle(self):
+        import copy
+        directtopo  = copy.deepcopy(self.m_directtopo)
+        dudict = {}
+        for key in directtopo:
+            dudict[key] = 0
+        for valuelist in directtopo.values():
+            for value in valuelist:
+                if value not in dudict:
+                    dudict[value] = 0
+                dudict[value] += 1
+        pstack = []
+        for key in dudict.keys():
+            if dudict[key] == 0:
+                pstack.append(key)
+                del dudict[key]
+        while len(pstack):
+            nename = pstack.pop()
+            for value in directtopo.get(nename,[]):
+                dudict[value] -= 1
+                if dudict[value] == 0:
+                    pstack.append(value)
+                    del dudict[value]
+            if nename in directtopo:
+                del directtopo[nename]
+        print "remove circle size:", len(directtopo)
+
+    def printtopoinfo(self):
+        print "toposize:",len(self.m_topodict)
+        print "direct toposize:", len(self.m_directtopo)
+
+        entrydict = {}
+        for nelist in self.m_directtopo.values():
+            for nename in nelist:
+                if nename not in entrydict:
+                    entrydict[nename] = 0
+                entrydict[nename] += 1
+        kvlist = entrydict.items()
+        kvlist.sort(key=lambda v : v[1])
+        entrycntdict = {}
+        for k, v in kvlist:
+            if v not in entrycntdict:
+                entrycntdict[v] = 0
+            entrycntdict[v] += 1
+        print "direct topo"
+        for k, v in entrycntdict.items():
+            print k, "\t:\t", v
+
+        directoutdict = {}
+        for k, v in self.m_directtopo.items():
+            vlen = len(v)
+            if vlen not in directoutdict:
+                directoutdict[vlen] = 0
+            directoutdict[vlen] += 1
+        print "direct out"
+        kvlist = directoutdict.items()
+        kvlist.sort(key=lambda v:v[0])
+        for k, v in kvlist:
+            print k, "\t:\t", v
+
+        nodirectentrydict = {}
+        for nelist in self.m_topodict.values():
+            for nename in nelist:
+                if nename not in nodirectentrydict:
+                    nodirectentrydict[nename] = 0
+                nodirectentrydict[nename] += 1
+        kvlist = nodirectentrydict.items()
+        kvlist.sort(key=lambda v: v[1])
+        entrycntdict = {}
+        for k, v in kvlist:
+            if v not in entrycntdict:
+                entrycntdict[v] = 0
+            entrycntdict[v] += 1
+        print "no direct topo"
+        for k, v in entrycntdict.items():
+            print k, "\t:\t", v
 
     def loadloc(self):
         filereader= FileReader("../NE_INFO.csv")
@@ -513,9 +611,12 @@ def testtopo():
     print "noncontain:",noncontain
 
 if __name__ == "__main__":
-    TestWarning().testfound()
+    # TestWarning().testfound()
     # testwrongfile()
     # testnenamereplicate()
     # testinfunction()
     # TopoInfo().getnebyname("BH0040-BH0440  Sub S")
     # testtopo()
+    topo = TopoInfo()
+    topo.nodirecthascircle()
+    topo.directhascircle()

@@ -280,6 +280,7 @@ class FPGrowth:
                 datadict[key][warninfo] = timesec
         print "finish read test file"
         # 合并时间相近的告警
+        # datadict 为二级dict，一级key为时间槽，二级key为warninfo，value为告警发生时间
         print "start to combine slot"
         self.combineslot(datadict)
         print "finish combine slot"
@@ -290,7 +291,7 @@ class FPGrowth:
         cmprate = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
         print "compress rate:",cmprate
 
-        # 合并同一时间段内所属NE相同的告警
+        # 合并同一时间段内所属NE相同的告警，这是利用频繁项集挖掘
         print "start to combine in ne"
         self.combineinne(datadict,ratethre)
         print "finish combine in ne"
@@ -303,11 +304,9 @@ class FPGrowth:
 
         # 合并同一时间段内位置相邻的告警
         print "start to combine in slot"
+        # rootcausedata的内容为二级dict，第一层key为时间槽，第二层key为编号，第三层key为warn
         rootcausedata = self.combinesinslot(datadict, ratethre)
         print "finish combine in slot"
-
-
-
 
         writerootcausedata = {}
         for key in rootcausedata:
@@ -326,6 +325,30 @@ class FPGrowth:
         print "warsamene:", warnsamene * 1.0 / doclen
         print "\n" * 5
 
+    def testclusteringresult(self):
+        # 加载聚合结果数据
+        rootcausedata = json.load(open("fpgrootcausedata"))
+
+        for key in rootcausedata.keys():
+            data = rootcausedata[key]
+            for num in data.keys():
+                data[num] = DistinctWarning(warnstr=data[num])
+            neset = []
+            for warn in data.values():
+                if warn not in neset:
+                    neset.append(warn)
+            for nename in neset:
+                for nename2 in neset:
+                    if nename == nename2:
+                        continue
+                    if self.m_topo.adjoin(nename2.m_nename,nename.m_nename):
+                        raise Exception
+            print "========================================================"
+            neset.sort(key=lambda v:v.m_alarmcode)
+            print len(neset),len(data)
+            for nename in neset:
+                print str(nename)+",",
+
     def tongjineinfo(self, rootcausedata):
         warnsamene = 0
         for valuedict in rootcausedata.values():
@@ -341,6 +364,7 @@ class FPGrowth:
     def combineinne(self,datadict,ratethre):
         datadictitems = datadict.items()
         keylist = [v[0] for v in datadictitems]
+        # dictlist 是每个slot中的warn与其发生时间的dict
         dictlist = [v[1] for v in datadictitems]
         idx = 0
         for subdict in self.asynccombineinne(dictlist,ratethre):
@@ -375,6 +399,7 @@ class FPGrowth:
         rootcausedata = {}
         # idcount = 0
         print "datadict length:",len(datadict)
+        # dictlist 是每个slot中的warn与其发生时间的dict
         datadictitems = datadict.items()
         keylist = [v[0] for v in datadictitems]
         dictlist = [v[1] for v in datadictitems]
@@ -428,6 +453,7 @@ def asynccombineinnefunc(para):
     # slotwarndict = datadict[key]
     newsubdict = {}
     warnlist = slotwarndict.keys()
+    # 先给所有的warn编个号，时间信息先不用
     warn2nodict = dict(zip(warnlist,range(len(warnlist))))
     no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
     # 合并位置相邻的告警
@@ -442,8 +468,8 @@ def asynccombineinnefunc(para):
             tranno2 = tranno1
             tranno1 = temp
         if TRAIN:
+            # 挖掘频繁项集，如果两个属于相同网元的告警频繁一起出现，那么就合并
             itemsetkey = str(tranno1) + " " + str(tranno2)
-
             if itemsets.get(itemsetkey,0) < ratethre:
             # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
                 continue
@@ -454,6 +480,7 @@ def asynccombineinnefunc(para):
             no2 = warn2nodict[warn2]
             if no1 == no2:
                 continue
+            # 把2号的数据合并到1号中
             for warn in no2warndict[no2]:
                 warn2nodict[warn] = no1
             no2warndict[no1].extend(no2warndict[no2])
@@ -487,20 +514,6 @@ def asynccombineinslotfunc(para):
     # 合并位置相邻的告警
     # try:
     for v in itertools.combinations(warnlist,2):
-        # tranno1 = tranmap.get(v[0],None)
-        # tranno2 = tranmap.get(v[1],None)
-        # if tranno1 is None or tranno2 is None:
-        #     continue
-        # if tranno2 < tranno1:
-        #     temp = tranno2
-        #     tranno2 = tranno1
-        #     tranno1 = temp
-        # if TRAIN:
-        #     itemsetkey = str(tranno1) + " " + str(tranno2)
-        #
-        #     if itemsets.get(itemsetkey,0) * 1.0 / length < ratethre:
-        #     # if self.m_itemsets[tranno1][tranno2] * 1.0 / self.m_length < ratethre:
-        #         continue
         if topo.adjoin(v[0].m_nename,v[1].m_nename):
             warn1 = v[0]
             warn2 = v[1]
@@ -562,17 +575,18 @@ def genitemsets():
 
 if __name__ == "__main__":
     fpg = FPGrowth("../itemmining")
-    fpg.run()
+    fpg.testclusteringresult()
+    # fpg.run()
     # fpg.m_itemsets = json.load(open("fpgitemsets"))
     # fpg.genitemsetsrate()
 
-    raise
-
-    pass
-    fpg = FPGrowth("../itemmining")
-    fpg.run()
-    fpg.save()
-    hr = fpg.gethighestrate()
-    fpg.clusterdata("../testdata",0.000000000001)
+    # raise
+    #
+    # pass
+    # fpg = FPGrowth("../itemmining")
+    # fpg.run()
+    # fpg.save()
+    # hr = fpg.gethighestrate()
+    # fpg.clusterdata("../testdata",0.000000000001)
 
 
