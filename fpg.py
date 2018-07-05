@@ -291,6 +291,17 @@ class FPGrowth:
         cmprate = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
         print "compress rate:",cmprate
 
+        # 合并所属NE有共同父结点的告警
+        print "start to combine same father"
+        self.combinesamefather(datadict)
+        print "stop to combine same father"
+
+        print "doclen:", doclen
+        print "combinedlen:", sum([len(v) for v in datadict.values()])
+        print "secstep:", secstep
+        cmprate3 = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
+        print "compress rate:", cmprate3
+
         # 合并同一时间段内所属NE相同的告警，这是利用频繁项集挖掘
         print "start to combine in ne"
         self.combineinne(datadict,ratethre)
@@ -372,7 +383,19 @@ class FPGrowth:
             idx += 1
             datadict[key] = subdict
 
-    def asynccombineinne(self,dictlist,ratethre):
+    # 合并同一时间段内所属NE相同的告警
+    def combinesamefather(self, datadict):
+        datadictitems = datadict.items()
+        keylist = [v[0] for v in datadictitems]
+        # dictlist 是每个slot中的warn与其发生时间的dict
+        dictlist = [v[1] for v in datadictitems]
+        idx = 0
+        for subdict in self.asynccombinefather(dictlist):
+            key = keylist[idx]
+            idx += 1
+            datadict[key] = subdict
+
+    def asynccombineinne(self, dictlist,ratethre):
         original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
         pool = multiprocessing.Pool(40)
         signal.signal(signal.SIGINT, original_sigint_handler)
@@ -381,6 +404,26 @@ class FPGrowth:
             dictlen = len(dictlist)
             para = zip([self.m_length]*dictlen,[self.m_itemsetsrate]*dictlen,[ratethre]*dictlen,[self.m_topo]*dictlen,[self.m_tranmap]*dictlen,dictlist)
             result = pool.map_async(asynccombineinnefunc, para)
+            result = result.get(99999999)  # Without the timeout this blocking call ignores all signals.
+        except KeyboardInterrupt:
+            pool.terminate()
+            pool.close()
+            pool.join()
+            exit()
+        else:
+            pool.close()
+        pool.join()
+        return result
+
+    def asynccombinefather(self,dictlist):
+        original_sigint_handler = signal.signal(signal.SIGINT, signal.SIG_IGN)
+        pool = multiprocessing.Pool(40)
+        signal.signal(signal.SIGINT, original_sigint_handler)
+        try:
+            # result = self.m_pool.map_async(self.mainfunc, doclist)
+            dictlen = len(dictlist)
+            para = zip([self.m_length]*dictlen,[self.m_topo]*dictlen,[self.m_tranmap]*dictlen,dictlist)
+            result = pool.map_async(asynccombinefatherfunc, para)
             result = result.get(99999999)  # Without the timeout this blocking call ignores all signals.
         except KeyboardInterrupt:
             pool.terminate()
@@ -446,6 +489,31 @@ class FPGrowth:
 
     def gethighestrate(self):
         return max(self.m_itemsetsrate.values())
+
+def asynccombinefatherfunc(para):
+    length,topo,tranmap,slotwarndict = para
+    newsubdict = {}
+    warnlist = slotwarndict.keys()
+    # 先给所有的warn编个号，时间信息先不用
+    warn2nodict = dict(zip(warnlist,range(len(warnlist))))
+    no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
+    # 合并位置相邻的告警
+    fatherkeylist = topo.m_directtopo.keys()
+    fatherkeydata = {}
+    for warn in warnlist:
+        nename = warn.m_nename
+        for father in topo.m_fatherdata.get(nename,[]):
+            if father not in fatherkeydata:
+                fatherkeydata[father] = []
+            fatherkeydata[father].append(warn)
+    result = {}
+    for father in fatherkeydata.keys():
+        lastwarn = fatherkeydata[father][0]
+        for warn in fatherkeydata[father][1:]:
+            if slotwarndict[warn] < slotwarndict[lastwarn]:
+                lastwarn = warn
+        result[lastwarn] = slotwarndict[lastwarn]
+    return result
 
 def asynccombineinnefunc(para):
     length,itemsets,ratethre,topo,tranmap,slotwarndict = para
@@ -574,8 +642,8 @@ def genitemsets():
     return itemsets
 
 if __name__ == "__main__":
-    fpg = FPGrowth("../itemmining")
-    fpg.testclusteringresult()
+    # fpg = FPGrowth("../itemmining")
+    # fpg.testclusteringresult()
     # fpg.run()
     # fpg.m_itemsets = json.load(open("fpgitemsets"))
     # fpg.genitemsetsrate()
@@ -583,10 +651,10 @@ if __name__ == "__main__":
     # raise
     #
     # pass
-    # fpg = FPGrowth("../itemmining")
-    # fpg.run()
-    # fpg.save()
-    # hr = fpg.gethighestrate()
-    # fpg.clusterdata("../testdata",0.000000000001)
+    fpg = FPGrowth("../itemmining")
+    fpg.run()
+    fpg.save()
+    hr = fpg.gethighestrate()
+    fpg.clusterdata("../testdata",0.000000000001)
 
 

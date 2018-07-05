@@ -49,6 +49,7 @@ class TopoInfo:
 
     def loadtopo(self):
         self.m_directtopo = {}
+        self.m_fatherdata = {}
         self.m_topodict = {}
         filereader = FileReader("../NE_TOPO_INFO.csv")
         neidx = filereader.getattridx("NE_ID")
@@ -69,11 +70,22 @@ class TopoInfo:
                 continue
             elif childne is None or parentne is None:
                 halfempty += 1
+                if parentne is None:
+                    childnename = childne.m_name
+                    parentnename = parentneid
+
+                    if childnename not in self.m_fatherdata:
+                        self.m_fatherdata[childnename] = []
+                    self.m_fatherdata[childnename].append(parentnename)
                 continue
             else:
                 nonempty += 1
             childnename = childne.m_name
             parentnename = parentne.m_name
+
+            if childnename not in self.m_fatherdata:
+                self.m_fatherdata[childnename] = []
+            self.m_fatherdata[childnename].append(parentnename)
 
             if childnename not in self.m_topodict:
                 self.m_topodict[childnename] = []
