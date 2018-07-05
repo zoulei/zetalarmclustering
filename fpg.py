@@ -91,7 +91,7 @@ class FPGrowth:
         alllinelist.append(linelist)
         print "endreadfile"
 
-        ofile = open("../pairdata","w")
+        ofile = open("../pairdata", "w")
         idy = 0
         # writedata = []
         for linelist in alllinelist:
@@ -246,7 +246,7 @@ class FPGrowth:
                 singledir += 1
             else:
                 doubledir += 1
-        print singledir,doubledir
+        print singledir, doubledir
 
     def clusterdata(self, fname, ratethre = 0.2, secstep = 60):
         ifile = open(fname)

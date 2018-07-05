@@ -88,6 +88,14 @@ class TopoInfo:
         print "halfempty:",halfempty
         print "nonempty:",nonempty
 
+    def loadhie(self):
+        self.m_hiertopo = {}
+        for key, valuelist in self.m_topodict.items():
+            for idxx in xrange(len(valuelist)):
+                for idxy in xrange(idxx + 1, len(valuelist)):
+                    genkey = "_".join([valuelist[idxx], valuelist[idxy]])
+                    self.m_hiertopo[genkey] = key
+
     def nodirecthascircle(self):
         import copy
         topodict = copy.deepcopy(self.m_topodict)
@@ -133,7 +141,7 @@ class TopoInfo:
         print "remove circle size:", len(directtopo)
 
     def printtopoinfo(self):
-        print "toposize:",len(self.m_topodict)
+        print "toposize:", len(self.m_topodict)
         print "direct toposize:", len(self.m_directtopo)
 
         entrydict = {}
@@ -161,7 +169,7 @@ class TopoInfo:
             directoutdict[vlen] += 1
         print "direct out"
         kvlist = directoutdict.items()
-        kvlist.sort(key=lambda v:v[0])
+        kvlist.sort(key=lambda v: v[0])
         for k, v in kvlist:
             print k, "\t:\t", v
 
@@ -620,3 +628,4 @@ if __name__ == "__main__":
     topo = TopoInfo()
     topo.nodirecthascircle()
     topo.directhascircle()
+    topo.printtopoinfo()
