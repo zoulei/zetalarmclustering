@@ -112,7 +112,6 @@ class FPGrowth:
                 # writedata.append("\n".join([" ".join(v) for v in data])+"\n")
         ofile.close()
         ifile.close()
-        # print "writedata:",writedata
 
         self.m_itemsets = genitemsets()
         self.genitemsetsrate()
@@ -492,13 +491,9 @@ class FPGrowth:
 
 def asynccombinefatherfunc(para):
     length,topo,tranmap,slotwarndict = para
-    newsubdict = {}
     warnlist = slotwarndict.keys()
     # 先给所有的warn编个号，时间信息先不用
-    warn2nodict = dict(zip(warnlist,range(len(warnlist))))
-    no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
     # 合并位置相邻的告警
-    fatherkeylist = topo.m_directtopo.keys()
     fatherkeydata = {}
     for warn in warnlist:
         nename = warn.m_nename

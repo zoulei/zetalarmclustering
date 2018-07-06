@@ -106,7 +106,7 @@ def tongjicause(secstep=60):
 
 if __name__ == "__main__":
     for step in [v*60 for v in xrange(1,51)]:
-        # generateitemsetminingrawdata(step)
+        generateitemsetminingrawdata(step)
         fpgobj = fpg.FPGrowth("../itemmining")
         fpgobj.run()
         fpgobj.save()
