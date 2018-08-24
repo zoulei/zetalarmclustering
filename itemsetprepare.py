@@ -16,7 +16,7 @@ def generateitemsetminingrawdata(secstep=60):
         if idx % 1000000 == 0:
             print "generaterawdata:",idx
         try:
-            alarmcode,nename,happentime = line.strip().split("\t")
+            alarmcode,nename,summary,happentime = line.strip().split("\t")
         except KeyboardInterrupt:
             raise
         except:
@@ -30,7 +30,7 @@ def generateitemsetminingrawdata(secstep=60):
             wrongcnt += 1
             continue
         key = int(timesec) / secstep
-        warninfo = fpg.DistinctWarning(alarmcode,nename)
+        warninfo = fpg.DistinctWarning(alarmcode,nename,summary)
         if key not in datadict:
             datadict[key] = []
         if warninfo not in datadict[key]:
@@ -44,11 +44,11 @@ def generateitemsetminingrawdata(secstep=60):
 
     writefileflag = True
     if writefileflag:
-        ofile = open("../itemmining","w")
+        ofile = open("../itemmining", "w")
     keylist = datadict.keys()
     keylist.sort()
     idx = 0
-    testfile = open("../testdata","w")
+    testfile = open("../testdata", "w")
     endflag = len(keylist) * 8 / 10
     for key in keylist:
         idx += 1
@@ -105,11 +105,12 @@ def tongjicause(secstep=60):
     fpgobj.save()
 
 if __name__ == "__main__":
-    for step in [v*60 for v in xrange(1,51)]:
+    for step in [v*60 for v in [10,]]:
         generateitemsetminingrawdata(step)
         fpgobj = fpg.FPGrowth("../itemmining")
         fpgobj.run()
-        fpgobj.save()
-        highestthre = fpgobj.gethighestrate()
-        for thre in [highestthre / 2, highestthre / 4, highestthre / 10]:
-            fpgobj.clusterdata("../testdata",thre,step)
+        # fpgobj.save()
+        # highestthre = fpgobj.gethighestrate()
+        # for thre in [highestthre / 2, highestthre / 4, highestthre / 10]:
+        #     fpgobj.clusterdata("../testdata",thre,step)
+        fpgobj.clusterdata("../testdata", 0.5, step)

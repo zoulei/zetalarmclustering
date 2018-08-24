@@ -509,7 +509,7 @@ class TestWarning:
         cnt = 0
         found = 0
         wholeresult = {}
-        writeflag = False
+        writeflag = True
         if writeflag:
             writefile = open("../cleandata","w")
 
@@ -571,8 +571,9 @@ class TestWarning:
                     continue
                 wholeresult[ftword]["good"] += 1
                 found += 1
+                summary = summary.replace("\n","_")
                 if writeflag:
-                    writefile.write(alarmcode+"\t"+loc.m_name+"\t"+tmptran[timeidx]+"\n")
+                    writefile.write(alarmcode+"\t"+loc.m_name+"\t"+summary+"\t"+tmptran[timeidx]+"\n")
         if writeflag:
             writefile.close()
         if wrongdocflag:
@@ -631,13 +632,15 @@ def testtopo():
     print "noncontain:",noncontain
 
 if __name__ == "__main__":
-    # TestWarning().testfound()
+    TestWarning().testfound()
     # testwrongfile()
     # testnenamereplicate()
     # testinfunction()
     # TopoInfo().getnebyname("BH0040-BH0440  Sub S")
     # testtopo()
-    topo = TopoInfo()
-    topo.nodirecthascircle()
-    topo.directhascircle()
-    topo.printtopoinfo()
+
+
+    # topo = TopoInfo()
+    # topo.nodirecthascircle()
+    # topo.directhascircle()
+    # topo.printtopoinfo()

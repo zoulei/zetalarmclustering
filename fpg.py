@@ -13,19 +13,18 @@ import traceback
 TRAIN = True
 
 class DistinctWarning:
-    def __init__(self, alarmcode = None, nename = None, warnstr = None):
+    def __init__(self, alarmcode = None, nename = None, content = None, warnstr = None):
         self.m_alarmcode = alarmcode
         self.m_nename = nename
+        self.m_content = content
         if warnstr:
             self.loadfromstr(warnstr)
 
     def loadfromstr(self,warnstr):
-        spaceidx = warnstr.find(" ")
-        self.m_alarmcode = warnstr[:spaceidx]
-        self.m_nename = warnstr[spaceidx + 1:]
+        self.m_alarmcode,self.m_nename,self.m_content = warnstr.split("||||")
 
     def __str__(self):
-        return self.m_alarmcode + " " + self.m_nename
+        return self.m_alarmcode + "||||" + self.m_nename + "||||" + self.m_content
 
     def __hash__(self):
         return hash(self.__str__())
@@ -76,45 +75,45 @@ class FPGrowth:
     def run(self):
         self.genmap()
 
-        ifile = open(self.m_fname)
-        idx = 0
-        alllinelist = []
-        linelist = []
-        for line in ifile:
-            linelist.append(line)
-            idx += 1
-            if idx % 1000 == 0:
-                print idx
-            if idx % 1500 == 0:
-                alllinelist.append(linelist)
-                linelist = []
-        alllinelist.append(linelist)
-        print "endreadfile"
+        # ifile = open(self.m_fname)
+        # idx = 0
+        # alllinelist = []
+        # linelist = []
+        # for line in ifile:
+        #     linelist.append(line)
+        #     idx += 1
+        #     if idx % 1000 == 0:
+        #         print idx
+        #     if idx % 1500 == 0:
+        #         alllinelist.append(linelist)
+        #         linelist = []
+        # alllinelist.append(linelist)
+        # print "endreadfile"
+        #
+        # ofile = open("../pairdata", "w")
+        # idy = 0
+        # # writedata = []
+        # for linelist in alllinelist:
+        #     idy += 1
+        #     # if idy == 2:
+        #     #     break
+        #     start = time.time()
+        #     print "start async",start
+        #     datalist = self.async(linelist)
+        #     print "end async",time.time() - start
+        #     idx = 0
+        #     for data in datalist:
+        #         idx += 1
+        #         if idx % 100 == 0:
+        #             print "datalist:",idx
+        #         if len(data) > 0:
+        #             ofile.write("\n".join([" ".join(v) for v in data])+"\n")
+        #         # writedata.append("\n".join([" ".join(v) for v in data])+"\n")
+        # ofile.close()
+        # ifile.close()
 
-        ofile = open("../pairdata", "w")
-        idy = 0
-        # writedata = []
-        for linelist in alllinelist:
-            idy += 1
-            # if idy == 2:
-            #     break
-            start = time.time()
-            print "start async",start
-            datalist = self.async(linelist)
-            print "end async",time.time() - start
-            idx = 0
-            for data in datalist:
-                idx += 1
-                if idx % 100 == 0:
-                    print "datalist:",idx
-                if len(data) > 0:
-                    ofile.write("\n".join([" ".join(v) for v in data])+"\n")
-                # writedata.append("\n".join([" ".join(v) for v in data])+"\n")
-        ofile.close()
-        ifile.close()
-
-        self.m_itemsets = genitemsets()
-        self.genitemsetsrate()
+        # self.m_itemsets = genitemsets()
+        # self.genitemsetsrate()
 
     def genitemsetsrate(self):
         ifile = open(self.m_fname)
@@ -256,7 +255,7 @@ class FPGrowth:
         print "start to read test file"
         for line in ifile:
             try:
-                alarmcode,nename,happentime = line.strip().split("\t")
+                alarmcode,nename,summary,happentime = line.strip().split("\t")
             except KeyboardInterrupt:
                 raise
             except:
@@ -274,7 +273,7 @@ class FPGrowth:
             key = int(timesec) / secstep
             if key not in datadict:
                 datadict[key] = {}
-            warninfo = DistinctWarning(alarmcode,nename)
+            warninfo = DistinctWarning(alarmcode,nename,summary)
             if warninfo not in datadict[key] or datadict[key][warninfo] > timesec:
                 datadict[key][warninfo] = timesec
         print "finish read test file"
@@ -289,51 +288,75 @@ class FPGrowth:
         print "secstep:",secstep
         cmprate = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
         print "compress rate:",cmprate
-
+        # raw_input("input")
         # 合并所属NE有共同父结点的告警
         print "start to combine same father"
         self.combinesamefather(datadict)
         print "stop to combine same father"
 
         print "doclen:", doclen
-        print "combinedlen:", sum([len(v) for v in datadict.values()])
+        combinedlen = 0
+        for fatherdictinfo in datadict.values():
+            combinedlen += sum([len(v) for v in fatherdictinfo.values()])
+        print "combinedlen:", combinedlen
         print "secstep:", secstep
-        cmprate3 = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
+        cmprate3 = combinedlen * 1.0 / doclen
         print "compress rate:", cmprate3
 
+        print "===========================same father data================================================"
+        for slot in datadict:
+            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            print "slot:",slot
+            for father in datadict[slot]:
+                print "**************************************************************************"
+                print "father:", father
+                print "================================================================"
+                print "================================================================"
+                print "================================================================"
+                print "================================================================"
+                for warn in datadict[slot][father]:
+                    print '-----------------------------------------------------------'
+                    print str(warn)
+
+        # print "doclen:", doclen
+        # print "combinedlen:", sum([len(v) for v in datadict.values()])
+        # print "secstep:", secstep
+        # cmprate3 = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
+        # print "compress rate:", cmprate3
+
         # 合并同一时间段内所属NE相同的告警，这是利用频繁项集挖掘
-        print "start to combine in ne"
-        self.combineinne(datadict,ratethre)
-        print "finish combine in ne"
-        print "threshold:",ratethre
-        print "combinedlen:",sum([len(v) for v in datadict.values()])
-        print "secstep:",secstep
-        cmprate2 = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
-        print "compress rate:",cmprate2
-        print "diff:",cmprate - cmprate2
-
-        # 合并同一时间段内位置相邻的告警
-        print "start to combine in slot"
-        # rootcausedata的内容为二级dict，第一层key为时间槽，第二层key为编号，第三层key为warn
-        rootcausedata = self.combinesinslot(datadict, ratethre)
-        print "finish combine in slot"
-
-        writerootcausedata = {}
-        for key in rootcausedata:
-            slotdata = rootcausedata[key]
-            writekey = str(key)
-            writerootcausedata[writekey] = dict([[v[0],str(v[1])] for v in slotdata.items()])
-        json.dump(writerootcausedata,open("fpgrootcausedata","w"))
-
-        print "doclen:",doclen
-        print "combinedlen:",sum([len(v) for v in rootcausedata.values()])
-        print "secstep:",secstep
-        cmprate1 = sum([len(v) for v in rootcausedata.values()]) * 1.0 / doclen
-        print "compress rate:",cmprate1
-        print "diff:",cmprate2 - cmprate1
-        warnsamene = self.tongjineinfo(rootcausedata)
-        print "warsamene:", warnsamene * 1.0 / doclen
-        print "\n" * 5
+        # print "start to combine in ne"
+        # self.combineinne(datadict,ratethre)
+        # print "finish combine in ne"
+        # print "threshold:",ratethre
+        # print "combinedlen:",sum([len(v) for v in datadict.values()])
+        # print "secstep:",secstep
+        # cmprate2 = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
+        # print "compress rate:",cmprate2
+        # print "diff:",cmprate - cmprate2
+        #
+        # # 合并同一时间段内位置相邻的告警
+        # print "start to combine in slot"
+        # # rootcausedata的内容为二级dict，第一层key为时间槽，第二层key为编号，第三层key为warn
+        # rootcausedata = self.combinesinslot(datadict, ratethre)
+        # print "finish combine in slot"
+        #
+        # writerootcausedata = {}
+        # for key in rootcausedata:
+        #     slotdata = rootcausedata[key]
+        #     writekey = str(key)
+        #     writerootcausedata[writekey] = dict([[v[0],str(v[1])] for v in slotdata.items()])
+        # json.dump(writerootcausedata,open("fpgrootcausedata","w"))
+        #
+        # print "doclen:",doclen
+        # print "combinedlen:",sum([len(v) for v in rootcausedata.values()])
+        # print "secstep:",secstep
+        # cmprate1 = sum([len(v) for v in rootcausedata.values()]) * 1.0 / doclen
+        # print "compress rate:",cmprate1
+        # print "diff:",cmprate2 - cmprate1
+        # warnsamene = self.tongjineinfo(rootcausedata)
+        # print "warsamene:", warnsamene * 1.0 / doclen
+        # print "\n" * 5
 
     def testclusteringresult(self):
         # 加载聚合结果数据
@@ -420,10 +443,13 @@ class FPGrowth:
         signal.signal(signal.SIGINT, original_sigint_handler)
         try:
             # result = self.m_pool.map_async(self.mainfunc, doclist)
-            dictlen = len(dictlist)
-            para = zip([self.m_length]*dictlen,[self.m_topo]*dictlen,[self.m_tranmap]*dictlen,dictlist)
-            result = pool.map_async(asynccombinefatherfunc, para)
-            result = result.get(99999999)  # Without the timeout this blocking call ignores all signals.
+            # dictlen = len(dictlist)
+            # para = zip([self.m_length]*dictlen,[self.m_topo]*dictlen,[self.m_tranmap]*dictlen,dictlist)
+            # result = pool.map_async(asynccombinefatherfunc, para)
+            # result = result.get(99999999)  # Without the timeout this blocking call ignores all signals.
+            result = []
+            for dictdata in dictlist:
+                result.append(asynccombinefatherfunc([self.m_length,self.m_topo,self.m_tranmap,dictdata]))
         except KeyboardInterrupt:
             pool.terminate()
             pool.close()
@@ -501,14 +527,15 @@ def asynccombinefatherfunc(para):
             if father not in fatherkeydata:
                 fatherkeydata[father] = []
             fatherkeydata[father].append(warn)
-    result = {}
-    for father in fatherkeydata.keys():
-        lastwarn = fatherkeydata[father][0]
-        for warn in fatherkeydata[father][1:]:
-            if slotwarndict[warn] < slotwarndict[lastwarn]:
-                lastwarn = warn
-        result[lastwarn] = slotwarndict[lastwarn]
-    return result
+    # result = {}
+    # for father in fatherkeydata.keys():
+    #     lastwarn = fatherkeydata[father][0]
+    #     for warn in fatherkeydata[father][1:]:
+    #         if slotwarndict[warn] < slotwarndict[lastwarn]:
+    #             lastwarn = warn
+    #     result[lastwarn] = slotwarndict[lastwarn]
+    # return result
+    return fatherkeydata
 
 def asynccombineinnefunc(para):
     length,itemsets,ratethre,topo,tranmap,slotwarndict = para
