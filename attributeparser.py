@@ -520,6 +520,8 @@ class TestWarning:
             wrongdocfile.write(",".join(['"ALARMHAPPENTIME"','"ALARMCODE"','"LOCATION"','"SUMMARY"'])+"\n")
 
         missloc = {}
+        print "||||||||||||||||"
+        fnamecnt = open("fnamecnt","w")
         for fname in fnamelist:
             print fname
             filereader = FileReader(fname)
@@ -574,6 +576,9 @@ class TestWarning:
                 summary = summary.replace("\n","_")
                 if writeflag:
                     writefile.write(alarmcode+"\t"+loc.m_name+"\t"+summary+"\t"+tmptran[timeidx]+"\n")
+            print fname,"\t",cntidx
+            fnamecnt.write(fname+"\t"+str(cntidx)+"\n")
+        fnamecnt.close()
         if writeflag:
             writefile.close()
         if wrongdocflag:

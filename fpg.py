@@ -75,45 +75,45 @@ class FPGrowth:
     def run(self):
         self.genmap()
 
-        # ifile = open(self.m_fname)
-        # idx = 0
-        # alllinelist = []
-        # linelist = []
-        # for line in ifile:
-        #     linelist.append(line)
-        #     idx += 1
-        #     if idx % 1000 == 0:
-        #         print idx
-        #     if idx % 1500 == 0:
-        #         alllinelist.append(linelist)
-        #         linelist = []
-        # alllinelist.append(linelist)
-        # print "endreadfile"
-        #
-        # ofile = open("../pairdata", "w")
-        # idy = 0
-        # # writedata = []
-        # for linelist in alllinelist:
-        #     idy += 1
-        #     # if idy == 2:
-        #     #     break
-        #     start = time.time()
-        #     print "start async",start
-        #     datalist = self.async(linelist)
-        #     print "end async",time.time() - start
-        #     idx = 0
-        #     for data in datalist:
-        #         idx += 1
-        #         if idx % 100 == 0:
-        #             print "datalist:",idx
-        #         if len(data) > 0:
-        #             ofile.write("\n".join([" ".join(v) for v in data])+"\n")
-        #         # writedata.append("\n".join([" ".join(v) for v in data])+"\n")
-        # ofile.close()
-        # ifile.close()
+        ifile = open(self.m_fname)
+        idx = 0
+        alllinelist = []
+        linelist = []
+        for line in ifile:
+            linelist.append(line)
+            idx += 1
+            if idx % 1000 == 0:
+                print idx
+            if idx % 1500 == 0:
+                alllinelist.append(linelist)
+                linelist = []
+        alllinelist.append(linelist)
+        print "endreadfile"
 
-        # self.m_itemsets = genitemsets()
-        # self.genitemsetsrate()
+        ofile = open("../pairdata", "w")
+        idy = 0
+        # writedata = []
+        for linelist in alllinelist:
+            idy += 1
+            # if idy == 2:
+            #     break
+            start = time.time()
+            print "start async",start
+            datalist = self.async(linelist)
+            print "end async",time.time() - start
+            idx = 0
+            for data in datalist:
+                idx += 1
+                if idx % 100 == 0:
+                    print "datalist:",idx
+                if len(data) > 0:
+                    ofile.write("\n".join([" ".join(v) for v in data])+"\n")
+                # writedata.append("\n".join([" ".join(v) for v in data])+"\n")
+        ofile.close()
+        ifile.close()
+
+        self.m_itemsets = genitemsets()
+        self.genitemsetsrate()
 
     def genitemsetsrate(self):
         ifile = open(self.m_fname)
@@ -289,34 +289,36 @@ class FPGrowth:
         cmprate = sum([len(v) for v in datadict.values()]) * 1.0 / doclen
         print "compress rate:",cmprate
         # raw_input("input")
+
+        # 先屏蔽下面这些东西
         # 合并所属NE有共同父结点的告警
-        print "start to combine same father"
-        self.combinesamefather(datadict)
-        print "stop to combine same father"
+        # print "start to combine same father"
+        # self.combinesamefather(datadict)
+        # print "stop to combine same father"
+        #
+        # print "doclen:", doclen
+        # combinedlen = 0
+        # for fatherdictinfo in datadict.values():
+        #     combinedlen += sum([len(v) for v in fatherdictinfo.values()])
+        # print "combinedlen:", combinedlen
+        # print "secstep:", secstep
+        # cmprate3 = combinedlen * 1.0 / doclen
+        # print "compress rate:", cmprate3
 
-        print "doclen:", doclen
-        combinedlen = 0
-        for fatherdictinfo in datadict.values():
-            combinedlen += sum([len(v) for v in fatherdictinfo.values()])
-        print "combinedlen:", combinedlen
-        print "secstep:", secstep
-        cmprate3 = combinedlen * 1.0 / doclen
-        print "compress rate:", cmprate3
-
-        print "===========================same father data================================================"
-        for slot in datadict:
-            print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-            print "slot:",slot
-            for father in datadict[slot]:
-                print "**************************************************************************"
-                print "father:", father
-                print "================================================================"
-                print "================================================================"
-                print "================================================================"
-                print "================================================================"
-                for warn in datadict[slot][father]:
-                    print '-----------------------------------------------------------'
-                    print str(warn)
+        # print "===========================same father data================================================"
+        # for slot in datadict:
+        #     print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #     print "slot:",slot
+        #     for father in datadict[slot]:
+        #         print "**************************************************************************"
+        #         print "father:", father
+        #         print "================================================================"
+        #         print "================================================================"
+        #         print "================================================================"
+        #         print "================================================================"
+        #         for warn in datadict[slot][father]:
+        #             print '-----------------------------------------------------------'
+        #             print str(warn)
 
         # print "doclen:", doclen
         # print "combinedlen:", sum([len(v) for v in datadict.values()])
@@ -357,6 +359,34 @@ class FPGrowth:
         # warnsamene = self.tongjineinfo(rootcausedata)
         # print "warsamene:", warnsamene * 1.0 / doclen
         # print "\n" * 5
+
+        print "start to combine same father"
+        datadict = self.combinesinslot(datadict, ratethre)
+        print "stop to combine same father"
+
+        print "doclen:", doclen
+        combinedlen = 0
+        for fatherdictinfo in datadict.values():
+            combinedlen += len(fatherdictinfo)
+        print "combinedlen:", combinedlen
+        print "secstep:", secstep
+        cmprate3 = combinedlen * 1.0 / doclen
+        print "compress rate:", cmprate3
+
+        # print "===========================combine data================================================"
+        # for slot in datadict:
+        #     print "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        #     print "slot:",slot
+        #     for father in datadict[slot]:
+        #         print "**************************************************************************"
+        #         print "father:", father
+        #         print "================================================================"
+        #         print "================================================================"
+        #         print "================================================================"
+        #         print "================================================================"
+        #         for warn in datadict[slot][father]:
+        #             print '-----------------------------------------------------------'
+        #             print str(warn)
 
     def testclusteringresult(self):
         # 加载聚合结果数据
@@ -487,6 +517,7 @@ class FPGrowth:
             dictlen = len(dictlist)
             para = zip([self.m_length]*dictlen,[self.m_itemsets]*dictlen,[ratethre]*dictlen,[self.m_topo]*dictlen,[self.m_tranmap]*dictlen,dictlist)
             result = pool.map_async(asynccombineinslotfunc, para)
+            # result = pool.map_async(asynctestfunc, para)
             result = result.get(99999999)  # Without the timeout this blocking call ignores all signals.
         except KeyboardInterrupt:
             pool.terminate()
@@ -631,6 +662,45 @@ def asynccombineinslotfunc(para):
     #     print "no2warndict:",no2warndict
     #     raise
     return rootcausedata
+
+def asynctestfunc(para):
+    length,itemsets,ratethre,topo,tranmap,slotwarndict = para
+    rootcausedata = {}
+    # slotwarndict = datadict[key]
+    warnlist = slotwarndict.keys()
+    warn2nodict = dict(zip(warnlist,range(len(warnlist))))
+    no2warndict = dict(zip(range(len(warnlist)),[[v,] for v in warnlist]))
+    # 合并位置相邻的告警
+    # try:
+    for v in itertools.combinations(warnlist,2):
+        if topo.adjoin(v[0].m_nename,v[1].m_nename) or v[0].m_nename == v[1].m_nename:
+            warn1 = v[0]
+            warn2 = v[1]
+            no1 = warn2nodict[warn1]
+            no2 = warn2nodict[warn2]
+            if no1 == no2:
+                continue
+            for warn in no2warndict[no2]:
+                warn2nodict[warn] = no1
+            no2warndict[no1].extend(no2warndict[no2])
+            del no2warndict[no2]
+    return no2warndict
+    # 根因确定，选择时间最前的
+    # for no in no2warndict:
+    #     warnlist = no2warndict[no]
+    #     oldesttime = slotwarndict[warnlist[0]]
+    #     rootcause = warnlist[0]
+    #     for warn in warnlist:
+    #         if slotwarndict[warn] < oldesttime:
+    #             oldesttime = slotwarndict[warn]
+    #             rootcause = warn
+    #     rootcausedata[str(no)] = rootcause
+    # # except:
+    # #     traceback.print_exc()
+    # #     print "warn2nodict:",warn2nodict
+    # #     print "no2warndict:",no2warndict
+    # #     raise
+    # return rootcausedata
 
 def asyncfunc(para):
     topo,tranmap,line = para

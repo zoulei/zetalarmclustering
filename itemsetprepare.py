@@ -4,15 +4,25 @@ import fpg
 import os
 import removeduplicate
 
-def generateitemsetminingrawdata(secstep=60):
+def generateitemsetminingrawdata(secstep=60,datasize = 1.0):
     ifile = open("../cleandata")
+    filesize = 0
+    for line in ifile:
+        filesize += 1
+    ifile.close()
+    ifile = open("../cleandata")
+
+
     datadict = {}
     rawdatadict= {}
     wrongcnt = 0
     notime = 0
     idx = 0
+    limitsize= int(filesize * datasize)
     for line in ifile:
         idx += 1
+        if idx > limitsize:
+            break
         if idx % 1000000 == 0:
             print "generaterawdata:",idx
         try:
@@ -105,12 +115,56 @@ def tongjicause(secstep=60):
     fpgobj.save()
 
 if __name__ == "__main__":
-    for step in [v*60 for v in [10,]]:
+    # for step in [v*60 for v in [10,]]:
+    start = 0
+    for step in [v*60 for v in xrange(1,16)]:
+        start = time.time()
         generateitemsetminingrawdata(step)
+        print "gendata:::::::",step,time.time() - start
+        start = time.time()
         fpgobj = fpg.FPGrowth("../itemmining")
         fpgobj.run()
+        print "traintime:::::::",step,time.time() - start
+        start = time.time()
         # fpgobj.save()
         # highestthre = fpgobj.gethighestrate()
         # for thre in [highestthre / 2, highestthre / 4, highestthre / 10]:
         #     fpgobj.clusterdata("../testdata",thre,step)
         fpgobj.clusterdata("../testdata", 0.5, step)
+        print "time:::::::",step,time.time() - start
+
+    start = 0
+    for datasize in [v * 0.1 for v in xrange(1,11)]:
+        start = time.time()
+        generateitemsetminingrawdata(900,datasize)
+        print "gendata:::::::",datasize,time.time() - start
+        start = time.time()
+        fpgobj = fpg.FPGrowth("../itemmining")
+        fpgobj.run()
+        print "traintime:::::::",datasize,time.time() - start
+        start = time.time()
+        # fpgobj.save()
+        # highestthre = fpgobj.gethighestrate()
+        # for thre in [highestthre / 2, highestthre / 4, highestthre / 10]:
+        #     fpgobj.clusterdata("../testdata",thre,step)
+        fpgobj.clusterdata("../testdata", 0, 900)
+        print "time:::::::",datasize,time.time() - start
+
+
+
+    # start = 0
+    # for step in [v*60 for v in [15,]]:
+    #     start = time.time()
+    #     print "start:",start
+    #     # generateitemsetminingrawdata(step)
+    #     print "generatedataover"
+    #     fpgobj = fpg.FPGrowth("../itemmining")
+    #     fpgobj.run()
+    #     print "traintime:::::::",step,time.time() - start
+    #     start = time.time()
+    #     # fpgobj.save()
+    #     # highestthre = fpgobj.gethighestrate()
+    #     # for thre in [highestthre / 2, highestthre / 4, highestthre / 10]:
+    #     #     fpgobj.clusterdata("../testdata",thre,step)
+    #     fpgobj.clusterdata("../testdata", 0, step)
+    #     print "time:::::::",step,time.time() - start
