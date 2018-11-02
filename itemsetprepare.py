@@ -119,7 +119,7 @@ if __name__ == "__main__":
     start = 0
     for step in [v*60 for v in xrange(1,16)]:
         start = time.time()
-        generateitemsetminingrawdata(step)
+        generateitemsetminingrawdata(step,0.3)
         print "gendata:::::::",step,time.time() - start
         start = time.time()
         fpgobj = fpg.FPGrowth("../itemmining")
@@ -134,7 +134,7 @@ if __name__ == "__main__":
         print "time:::::::",step,time.time() - start
 
     start = 0
-    for datasize in [v * 0.1 for v in xrange(1,11)]:
+    for datasize in [v * 0.1*0.3 for v in xrange(1,11)]:
         start = time.time()
         generateitemsetminingrawdata(900,datasize)
         print "gendata:::::::",datasize,time.time() - start
